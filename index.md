@@ -18,7 +18,7 @@ line-by-line, never GenMURK's own code or identity. The name honors the
 MUD/MUSE family (MURK — the earthy sibling of mud/muck/mush).
 
 If you remember these worlds — if you ever wrote softcode on a MUSH or a MUSE —
-there's [a note for you on the museum page](/museum/#if-you-remember-these).
+there's [a note for you on the museum page](/museum/).
 
 ## Build in public — the story so far
 
