@@ -17,6 +17,9 @@ lineage on the [museum page](/museum/) — never adopted, never ported
 line-by-line, never GenMURK's own code or identity. The name honors the
 MUD/MUSE family (MURK — the earthy sibling of mud/muck/mush).
 
+If you remember these worlds — if you ever wrote softcode on a MUSH or a MUSE —
+there's [a note for you on the museum page](/museum/#if-you-remember-these).
+
 ## Build in public — the story so far
 
 This is the build log, published as it happens. Where things stand today:
@@ -56,4 +59,5 @@ reviewed pull request. This log tells the honest story of that work.
 
 This is a [Bussetech Software Studio](https://bussetech.com) project —
 `bussetech | software studio`. It is **instance 1** of the studio's
-[build-in-public pattern](https://bussetech.com).
+[build-in-public pattern](https://bussetech.com). The whole build is in the
+open: **[github.com/bussetech/genmurk](https://github.com/bussetech/genmurk)**.

@@ -34,6 +34,8 @@ studio:
   # block on every page (home + all page-layout pages); it POSTs to the studio's
   # Buttondown provider — the provider holds the PII, the repo holds no secret
   # (ADR-0034). Build-in-public: honest, no-JS, no-pixel, double opt-in.
+  # Build-in-public sites link their repo in the footer + menu (STEERCO).
+  footer_note: 'Built in public — <a href="https://github.com/bussetech/genmurk">source on GitHub</a>.'
   signup:
     enabled: true
     rail: true
@@ -58,6 +60,8 @@ studio:
       url: /decisions/
     - title: Museum
       url: /museum/
+    - title: Source
+      url: https://github.com/bussetech/genmurk
 
 markdown: kramdown
 sass:

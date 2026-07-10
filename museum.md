@@ -10,6 +10,18 @@ Honest provenance: **this is the artifact GenMURK studied.** It is a museum
 exhibit, not GenMURK's code. Nothing here is adopted, nothing here is wired into
 GenMURK's CI or its running product, and nothing here is the product's identity.
 
+## If you remember these
+
+If you spent time on a MUD, a MUSH, or a MUSE — or wrote softcode on one at 2 a.m.
+on a university VAX — this build is partly for you. A lot of us are decades into
+the industry now, and the text worlds that taught us what "multiplayer" and
+"programmable" even meant are hard to run today. GenMURK is an attempt to carry
+that idea forward honestly: study what those systems actually *did*, write it
+down, and rebuild it clean on modern architecture. If that resonates, the whole
+thing is in the open — the [decomposition](/decomposition/), the
+[decisions](/decisions/), and the [source](https://github.com/bussetech/genmurk).
+Pull up a chair.
+
 ## What we studied
 
 **TinyMUSE** — a ~**31,000-line 1990s C** MUD/MUSH server, a TinyMUSH 1.5
