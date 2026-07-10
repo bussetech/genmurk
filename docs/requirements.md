@@ -120,8 +120,8 @@ couldn't do, that the rebuild fixes by intent). Requirements are *what*, not
   **Mechanism (decided, STEERCO):** GenMURK builds **its own purpose-built
   interpreter** — the budgets are enforced *natively*, not inherited from an
   off-the-shelf VM. Owning the engine end to end flexes the studio's core
-  engineering muscle and is the foundation for GM-R22.
-- **GM-R22 [vision — post-v1]** The engine is built to eventually host the
+  engineering muscle and is the foundation for GM-R21.
+- **GM-R21 [vision — post-v1]** The engine is built to eventually host the
   studio's own workforce: one day **gnomes may live in-MURK**, present in the
   world and building inside it through the softcode the same way a player does.
   Not a v1 requirement — a design north star that argues for owning the engine
@@ -165,7 +165,7 @@ EPIC4-07 SaaS-stratum patterns:
   an off-the-shelf VM. The first architecture ADR designs that engine and proves
   the sandbox; the requirement (sandbox-by-construction) is fixed and the
   mechanism is now settled (own it). Owning the engine is the foundation for the
-  GM-R22 vision (gnomes building in-MURK).
+  GM-R21 vision (gnomes building in-MURK).
 - **Museum (GM-R20):** the original C tree may be preserved read-only as a
   behavioral-reference exhibit; it is never adopted as product nor built in CI.
 
@@ -189,7 +189,7 @@ The **PROD app is EPIC5 work**; 08 records the plan and reserves the surfaces.
    highest-risk, highest-value work; nothing hosted ships before it. Mechanism is
    decided (our own purpose-built interpreter, STEERCO); the ADR designs it and
    proves step/CPU/recursion budgets against an adversarial fixture pack (softcode
-   as untrusted input). Foundation for GM-R22 (gnomes in-MURK).
+   as untrusted input). Foundation for GM-R21 (gnomes in-MURK).
 2. **[arch] World-model schema (GM-R5..R10)** — Supabase relational model for
    objects/attributes/locks/containment/ownership; RLS bound to capabilities.
 3. **[core] Real-time presence & room speech (GM-R1..R4)** — transport choice,
