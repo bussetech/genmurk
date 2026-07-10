@@ -40,8 +40,8 @@ studio:
     rail_placement: "genmurk-rail"
     action: "https://buttondown.com/api/emails/embed-subscribe/bussetech"
     email_field: email
-    heading: "Follow the GenMURK build"
-    value_prop: "A classic multiplayer text world, rebuilt in public — decomposition, decisions, and progress as they happen. Get a note when the build moves."
+    heading: "GenMURK + Studio updates"
+    value_prop: "Get a note when the GenMURK build moves — decomposition, decisions, progress — plus the occasional update on what the studio ships. One studio list, no spam, no tracking."
     button_label: "Subscribe"
     privacy_note: "We store only your email, to send these updates, under the Eszett, LLC privacy notice. Double opt-in; unsubscribe any time."
     hidden:
