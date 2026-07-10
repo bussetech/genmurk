@@ -30,6 +30,23 @@ studio:
   # Cloudflare Web Analytics token, minted per live hostname by the DNS
   # steward into platform.yml (EPIC1-04). Backfill from there; not secret.
   analytics_beacon: ""
+  # Site-wide email capture (theme signup rail, v0.11.0). rail:true renders the
+  # block on every page (home + all page-layout pages); it POSTs to the studio's
+  # Buttondown provider — the provider holds the PII, the repo holds no secret
+  # (ADR-0034). Build-in-public: honest, no-JS, no-pixel, double opt-in.
+  signup:
+    enabled: true
+    rail: true
+    rail_placement: "genmurk-rail"
+    action: "https://buttondown.com/api/emails/embed-subscribe/bussetech"
+    email_field: email
+    heading: "Follow the GenMURK build"
+    value_prop: "A classic multiplayer text world, rebuilt in public — decomposition, decisions, and progress as they happen. Get a note when the build moves."
+    button_label: "Subscribe"
+    privacy_note: "We store only your email, to send these updates, under the Eszett, LLC privacy notice. Double opt-in; unsubscribe any time."
+    hidden:
+      embed: "1"
+    placement_field: "metadata__placement"
   nav:
     - title: Home
       url: /
