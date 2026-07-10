@@ -1,4 +1,4 @@
-# __PROJECT_NAME__ — a Bussetech Software Studio project site.
+# genmurk — a Bussetech Software Studio project site.
 #
 # Created from <org>/project-template by the studio factory (EPIC1-08).
 # Double-underscore placeholders are filled by scripts/new-project.sh in
@@ -6,10 +6,10 @@
 #
 # Theme: pinned tag, never a branch (theme docs/versioning.md). Bump
 # canary-first when a new theme version ships.
-title: __PROJECT_NAME__
-description: __PROJECT_DESCRIPTION_YAML__
+title: genmurk
+description: "GenMURK — a modern multiplayer text world (MUD/MUSE): a clean-room rebuild inspired by the TinyMUSE engine and the mid-90s MIT MicroMUSE instance (historical reference, not adopted). Build-in-public living docs here; the app lives at genmurk.com."
 lang: en
-url: "https://__PROJECT_NAME__.__DOMAIN__"
+url: "https://genmurk.bussetech.com"
 baseurl: ""
 
 remote_theme: bussetech/theme@v0.11.0
@@ -17,16 +17,16 @@ plugins:
   - jekyll-remote-theme
 
 studio:
-  logotype: "__LOGOTYPE__"
-  org: __ORG__
-  domain: __DOMAIN__
+  logotype: "bussetech | software studio"
+  org: bussetech
+  domain: bussetech.com
   # public | private | private-published — must match this repo's entry in
   # the control repo's platform.yml. The theme keys its leak rule off it.
-  visibility: __VISIBILITY__
+  visibility: public
   # Studio legal identity (EPIC2-01) — the footer copyright line. Filled by
   # the factory from the control repo's platform.yml branding.legal.copyright.
   legal:
-    copyright: "__COPYRIGHT__"
+    copyright: "© 2026 Eszett, LLC"
   # Cloudflare Web Analytics token, minted per live hostname by the DNS
   # steward into platform.yml (EPIC1-04). Backfill from there; not secret.
   analytics_beacon: ""

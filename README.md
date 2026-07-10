@@ -1,12 +1,12 @@
-# __PROJECT_NAME__
+# genmurk
 
 **Status:** ![status](https://img.shields.io/badge/status-active-00843D) ·
-[![ci](https://github.com/__ORG__/__PROJECT_NAME__/actions/workflows/ci.yml/badge.svg)](https://github.com/__ORG__/__PROJECT_NAME__/actions/workflows/ci.yml)
-· **Site:** <https://__PROJECT_NAME__.__DOMAIN__> · **Visibility:** `__VISIBILITY__`
+[![ci](https://github.com/bussetech/genmurk/actions/workflows/ci.yml/badge.svg)](https://github.com/bussetech/genmurk/actions/workflows/ci.yml)
+· **Site:** <https://genmurk.bussetech.com> · **Visibility:** `public`
 
-__PROJECT_DESCRIPTION__
+GenMURK — a modern multiplayer text world (MUD/MUSE): a clean-room rebuild inspired by the TinyMUSE engine and the mid-90s MIT MicroMUSE instance (historical reference, not adopted). Build-in-public living docs here; the app lives at genmurk.com.
 
-A [__STUDIO_NAME__](https://__DOMAIN__) project: a static site
+A [Bussetech Software Studio](https://bussetech.com) project: a static site
 (Jekyll, shared studio theme) rendered from text-based data stores.
 
 ## Layout
