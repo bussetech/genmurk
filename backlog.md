@@ -16,12 +16,14 @@ executes it.**
 The list is deliberately ordered so the riskiest, highest-value decision comes
 **first** — nothing hosted ships before it is settled.
 
-1. **[arch] Softcode sandbox — ADR + spike (GM-R14 / GM-R11).** The crux. Pick
-   the mechanism (a purpose-built interpreter with hard budgets, vs. an
-   existing sandboxable embeddable VM) and *prove* step/CPU/recursion/queue
-   budgets against an adversarial fixture pack. Softcode is untrusted input; the
-   sandbox is non-negotiable and gates any hosted exposure. **This decision is
-   still open** — see [decisions](/decisions/).
+1. **[arch] Build our own softcode engine (GM-R14 / GM-R11).** The crux. The
+   mechanism is **decided — we build our own purpose-built interpreter**, not a
+   wrapper around an off-the-shelf VM (company direction; see
+   [decisions](/decisions/)). The work is to design that engine and *prove* its
+   step/CPU/recursion/queue budgets against an adversarial fixture pack. Softcode
+   is untrusted input; the sandbox is non-negotiable and gates any hosted
+   exposure. Owning the engine is also what makes a future where **gnomes build
+   in-MURK** possible.
 2. **[arch] World-model schema (GM-R5..R10).** The relational model for
    objects/attributes/locks/containment/ownership, on Supabase, with row-level
    security bound to the capability model.

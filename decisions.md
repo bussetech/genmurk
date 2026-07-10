@@ -2,13 +2,15 @@
 layout: page
 title: Architecture decisions
 eyebrow: The build
-description: "GenMURK's architecture decision log, in public — the settled calls (Supabase, Workers-class compute, an apex PROD domain) and the one that is honestly still open: how the softcode sandbox is built."
+description: "GenMURK's architecture decision log, in public — the settled calls (Supabase, Workers-class compute, an apex PROD domain, and building our own softcode engine) and the one still open: the themed creative direction."
 permalink: /decisions/
 ---
 
-The build's architecture decisions, recorded in public as they're made. Some are
-settled; one is honestly **still open**. This is direction of record, not a
-final blueprint — where a call hasn't been made, this page says so.
+The build's architecture decisions, recorded in public as they're made. Most are
+settled; the themed creative direction is still open. This is direction of
+record, not a final blueprint — where a call hasn't been made, this page says
+so. The source is public: read it at
+[github.com/bussetech/genmurk](https://github.com/bussetech/genmurk).
 
 ## Settled
 
@@ -40,25 +42,28 @@ app are different provider-family configurations and even different domains; the
 app is never deployed to these Pages, and this site never carries runtime
 secrets — it is secrets-free by construction.
 
+### We build our own softcode engine
+The user-programmable softcode runtime (GM-R11 / GM-R14) will be **the studio's
+own purpose-built interpreter** — not a wrapper around an off-the-shelf VM.
+Company direction (STEERCO): building the engine ourselves flexes the studio's
+own engineering muscle where it matters most, and keeps the sandbox — the hard
+requirement — enforced *natively* rather than inherited from someone else's
+runtime. The sandbox (GM-R14) is unchanged and non-negotiable: hard
+CPU/step/recursion/queue budgets, no host/network/filesystem access, all
+softcode treated as untrusted input, proven against an adversarial fixture pack
+before anything hosted ships. This is the highest-risk, highest-value piece of
+the build, so it leads the [backlog](/backlog/).
+
+**Why it matters beyond v1.** A softcode engine we own is a foundation we can
+grow into. One day the studio's own **gnomes may live in-MURK** — present in the
+world, building things inside it through the softcode the same way a player
+would. Owning the engine end to end is what makes that possible; a borrowed VM
+would not.
+
 ## Open
 
-### How the softcode sandbox is built — UNDECIDED
-The one hard requirement (GM-R14) is fixed: the softcode runtime is a **sandbox
-by construction** — hard CPU/step/recursion/queue budgets, no host/network/
-filesystem access, all softcode treated as untrusted input. The **mechanism is
-not yet chosen.** The two candidates:
-
-- a **purpose-built interpreter** with the budgets enforced natively, or
-- an **existing embeddable, sandboxable VM** (e.g. a WASM-isolated interpreter).
-
-This is the highest-risk, highest-value decision in the build, so it is settled
-**first** — via a dedicated ADR plus a spike that proves the budgets against an
-adversarial softcode fixture pack — before anything hosted ships. The decision
-is deferred to an **EPIC5 ADR** and is honestly recorded here as open. It leads
-the [backlog](/backlog/).
-
-## Also to come
-
-- **Themed creative direction** (setting, theme, name-in-fiction) is a
-  company-level decision issue with options — not invented here, and not
-  decided yet.
+### Themed creative direction
+The **setting, theme, and name-in-fiction** — what the world is *about* — is a
+company-level decision with options on the table, not invented here and not
+decided yet. The engine is theme-agnostic, so this doesn't block the build; it's
+tracked as a decision issue.
