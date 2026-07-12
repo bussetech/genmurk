@@ -45,12 +45,20 @@ The list is deliberately ordered so the riskiest, highest-value decision comes
     lineage/history pages on this docs site.
 11. **[decision] Themed creative direction** — a company-level decision issue
     with options (setting, theme, name-in-fiction); not invented here.
+12. **[faithful — onboarding] End-user command-set compatibility (GM-R22, STEERCO
+    minimum bar).** A cross-cutting acceptance layer over the verb work (items
+    3–8): GenMURK's player-facing command names and syntax match the
+    TinyMUSE/MicroMUSE reference so historic users onboard easily. Depends on a
+    preservation sub-task — **capture the canonical reference command set** (from
+    the behavioral reference and historic-user knowledge; airgapped, tracked as
+    its own issue) — and validated as the verbs land.
 
 ## Why softcode leads
 
 Everything else is ordinary product work; the softcode runtime is not. The
-reference exposed a user-programmable interpreter to the network with no
-resource isolation — a large untrusted surface. GenMURK treats all player
+reference exposed a user-programmable interpreter to the network without
+resource isolation — normal for its era, and a large untrusted surface by
+today's security standards. GenMURK treats all player
 softcode as untrusted input under the studio's trust framework, the same way a
 survey agent treats an injected README. Getting the sandbox right — **by
 construction, not by hope** — is what makes a hosted GenMURK safe to run, so it

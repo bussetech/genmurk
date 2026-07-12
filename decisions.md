@@ -60,6 +60,20 @@ world, building things inside it through the softcode the same way a player
 would. Owning the engine end to end is what makes that possible; a borrowed VM
 would not.
 
+### End-user command-set compatibility (STEERCO minimum bar)
+GenMURK supports **at minimum the same end-user command set** — player-facing
+verb names and invocation syntax — as the TinyMUSE/MicroMUSE reference, so that
+**historic users onboard with minimal relearning** (GM-R22). Company direction
+(STEERCO): the returning-user experience is a first-class goal, not an
+afterthought. What is preserved is the *surface* a player types; the
+implementations are GenMURK's own clean-room code and the interpreter/security
+model are modernized (GM-R11 / GM-R14). The **canonical command list is a
+preservation task** — drawn from the behavioral reference and historic-user
+knowledge, currently **airgapped** and tracked as its own issue; it is not
+enumerated in this repo yet. Where a reference command would conflict with the
+sandbox requirement (GM-R14), the safe behavior wins and the divergence is
+documented for the returning user.
+
 ## Open
 
 ### Themed creative direction

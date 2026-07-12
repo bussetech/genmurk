@@ -2,7 +2,7 @@
 layout: page
 title: Museum — the artifact we studied
 eyebrow: Provenance
-description: "The behavioral-reference exhibit: TinyMUSE (a ~31k-line 1990s C MUD/MUSH server) and the mid-90s MIT MicroMUSE instance — what they taught GenMURK, their licensing posture, and why they are lineage and reference, never GenMURK's identity."
+description: "The behavioral-reference exhibit: TinyMUSE (a ~31k-line 1990s C MUD/MUSH server) and the early-1990s MIT MicroMUSE instance — what they taught GenMURK, their licensing posture, and why they are lineage and reference, never GenMURK's identity."
 permalink: /museum/
 ---
 
@@ -33,7 +33,7 @@ Minimally modernized to a v2.0 that compiles and runs again — explicitly to
 restore compilability, not to add features (its own README calls the older code
 "difficult to compile, much less run").
 
-**The mid-90s MIT MicroMUSE instance** — the historical community running on this
+**The early-1990s MIT MicroMUSE instance** — the historical community running on this
 family of software, part of the MicroMuse / MuseNET / BridgeMUSE / OceanaMUSE
 academic milieu. It is history and context, named as lineage.
 
@@ -56,10 +56,14 @@ of the whole domain:
 - **The softcode idea** — that players extend the world at runtime by writing
   code the server runs. This is what makes a MUSE a MUSE, and it is GenMURK's
   hardest and most valuable requirement (GM-R11 / GM-R14).
-- **What the era got wrong** — a network daemon running a user-programmable
-  interpreter with no resource isolation, fixed-salt DES passwords, and default
-  admin credentials shipped in the open. GenMURK fixes all three by intent: a
-  sandbox by construction, a modern KDF, and no default credentials.
+- **How standards and practice have advanced since** — a network daemon running
+  a user-programmable interpreter without resource isolation, fixed-salt DES
+  password hashing, and default admin credentials were ordinary, accepted
+  practice for networked software of the era. Security engineering and
+  deployment norms have moved a long way since, and GenMURK builds to today's
+  patterns: a sandbox by construction, a modern KDF, and no default credentials.
+  These are changes in the state of the art, not faults of the work that came
+  before — that work is what taught the domain.
 
 ## Licensing posture — clean rebuild only
 

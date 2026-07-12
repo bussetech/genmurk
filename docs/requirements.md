@@ -2,7 +2,7 @@
 
 > **Status:** requirements-of-record, v1 (EPIC4-08). Clean-room rebuild.
 > **Lineage (reference only):** TinyMUSE (busse/tinymuse@master, © 1989–1995) and
-> the mid-90s MIT **MicroMUSE** instance are the *historical behavioral
+> the early-1990s MIT **MicroMUSE** instance are the *historical behavioral
 > reference* being studied — never adopted, never ported line-by-line, never the
 > product's identity. Provenance rule: every requirement below is written from
 > **observed behavior** (the intake survey `docs/intake/surveys/busse-tinymuse.md`
@@ -66,8 +66,9 @@ world model plus moderation tooling**.
 
 Each requirement is `GM-Rn`, tagged **[core]** (must exist for GenMURK to be
 recognizably the same kind of thing), **[faithful]** (behavior worth preserving
-from the reference), or **[modernize]** (a behavior the reference got wrong or
-couldn't do, that the rebuild fixes by intent). Requirements are *what*, not
+from the reference), or **[modernize]** (a place where industry standards,
+security practice, or platform patterns have advanced since the reference was
+written — the rebuild adopts the current pattern). Requirements are *what*, not
 *how*; architecture is §3.
 
 ### Presence & communication (from D1)
@@ -109,9 +110,11 @@ couldn't do, that the rebuild fixes by intent). Requirements are *what*, not
   `#dbref`).
 - **GM-R13 [faithful]** ANSI/markup in output, driven by softcode.
 - **GM-R14 [modernize — HARD REQUIREMENT]** The interpreter is a **sandbox by
-  construction**, not by hope. The reference is a network daemon running a
-  user-programmable interpreter with no resource isolation — a large untrusted
-  surface flagged in the survey and by studio trust doctrine. GenMURK's softcode
+  construction**, not by hope. The reference runs its user-programmable
+  interpreter as a network daemon without resource isolation — normal for
+  networked software of its era, and a large untrusted surface by today's
+  security standards, as the survey and studio trust doctrine both flag.
+  GenMURK's softcode
   runtime MUST enforce CPU/step/recursion/queue budgets, deny host/network/FS
   access, and treat all softcode as untrusted input under the studio trust-tier
   framework. This is the single most important modernization and gates any hosted
@@ -132,9 +135,10 @@ couldn't do, that the rebuild fixes by intent). Requirements are *what*, not
   equivalent), enforced server-side on every privileged verb.
 - **GM-R16 [faithful]** Moderation: player warnings, boots/silences, object
   destruction with audit; **GM-R17 [faithful]** in-world mail between players.
-- **GM-R18 [modernize]** Authentication replaces fixed-salt DES `crypt(pw,"XX")`
-  (shared 2-char salt, 8-char truncation) with a modern salted KDF (argon2/bcrypt
-  class) via the platform's auth provider; **no default God/Wizard credentials
+- **GM-R18 [modernize]** Authentication adopts today's standard — a modern salted
+  KDF (argon2/bcrypt class) via the platform's auth provider — in place of the
+  era's fixed-salt DES `crypt(pw,"XX")` (shared 2-char salt, 8-char truncation);
+  **no default God/Wizard credentials
   ship** — first-boot provisioning creates the god account with a rotated secret.
   (Closes the survey's #244-class residual at rebuild time.)
 
@@ -146,6 +150,20 @@ couldn't do, that the rebuild fixes by intent). Requirements are *what*, not
   artifact we studied," with the MUD/MUSE lineage and MicroMUSE history — never
   presented as GenMURK's own code or identity, never wired into CI or the running
   product.
+- **GM-R22 [faithful — onboarding] End-user command-set compatibility (STEERCO,
+  minimum bar).** GenMURK supports **at minimum the same end-user command set** —
+  the player-facing verbs, their names, and their invocation syntax — as the
+  TinyMUSE/MicroMUSE reference, so that historic users onboard with minimal
+  relearning. The *surface* (what a player types, and what it does) is preserved;
+  the *implementations* are GenMURK's own clean-room code and the interpreter and
+  security model are modernized (GM-R11/R14). The canonical command list is drawn
+  from the behavioral reference and historic-user knowledge; **capturing that
+  authoritative list is a preservation task tracked separately** (it is airgapped
+  from the estimate and is not enumerated here). Where a reference command would
+  conflict with a modern security requirement (e.g. the GM-R14 sandbox budgets),
+  the safe behavior wins and the divergence is documented for the returning user —
+  compatibility is a floor for onboarding, never a licence to reintroduce a
+  retired security practice.
 
 ## 3. Rebuild architecture (plan of record — direction, not final)
 
@@ -160,7 +178,7 @@ EPIC4-07 SaaS-stratum patterns:
 - **Real-time (GM-R1/R4):** a sanctioned real-time transport (WebSocket / Supabase
   Realtime / Durable-Object-class coordination) for room presence and push
   delivery. Room = channel; movement = channel switch.
-- **Softcode runtime (GM-R11/R14/R22):** the crux. **Decided (STEERCO): build our
+- **Softcode runtime (GM-R11/R14):** the crux. **Decided (STEERCO): build our
   own purpose-built interpreter** — budgets enforced natively, not inherited from
   an off-the-shelf VM. The first architecture ADR designs that engine and proves
   the sandbox; the requirement (sandbox-by-construction) is fixed and the

@@ -1,7 +1,7 @@
 ---
 layout: home
 title: GenMURK
-description: "GenMURK — a modern, multiplayer text world (MUD/MUSE): a clean-room rebuild on modern architecture, inspired by the TinyMUSE engine and the mid-90s MIT MicroMUSE instance. Build-in-public living docs; the running app lives at genmurk.com."
+description: "GenMURK — a modern, multiplayer text world (MUD/MUSE): a clean-room rebuild on modern architecture, inspired by the TinyMUSE engine and the early-1990s MIT MicroMUSE instance. Build-in-public living docs; the running app lives at genmurk.com."
 ---
 
 **GenMURK** is a modern **multiplayer text world** — a MUD/MUSE: many people
@@ -11,7 +11,7 @@ time, build the world out, and extend it by writing in-world code. It is a
 requirements — not an adoption or line-by-line port of any older engine.
 
 **Lineage (reference only).** GenMURK studies **TinyMUSE** (a ~31k-line 1990s C
-MUD/MUSH server in the TinyMUD → TinyMUSH family) and the mid-90s MIT
+MUD/MUSH server in the TinyMUD → TinyMUSH family) and the early-1990s MIT
 **MicroMUSE** instance as *historical behavioral reference*. They are named as
 lineage on the [museum page](/museum/) — never adopted, never ported
 line-by-line, never GenMURK's own code or identity. The name honors the
