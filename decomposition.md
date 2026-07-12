@@ -46,8 +46,9 @@ Behaviorally this is **RBAC over the world model plus moderation tooling**.
 
 Each is tagged **[core]** (must exist for GenMURK to be recognizably the same
 kind of thing), **[faithful]** (behavior worth preserving from the reference), or
-**[modernize]** (something the reference couldn't do or got wrong, fixed by
-intent). These are *what*, not *how*.
+**[modernize]** (a place where industry standards, security practice, or
+platform patterns have advanced since the reference was written — the rebuild
+adopts the current pattern). These are *what*, not *how*.
 
 ### Presence & communication (from D1)
 - **GM-R1 [core]** — concurrent players share one live world; presence (who is
@@ -88,9 +89,11 @@ intent). These are *what*, not *how*.
 - **GM-R14 [modernize — HARD REQUIREMENT]** — the interpreter is a **sandbox by
   construction, not by hope.** It MUST enforce CPU/step/recursion/queue budgets,
   deny host/network/filesystem access, and treat all softcode as untrusted input.
-  The reference ran a user-programmable interpreter as a network daemon with no
-  resource isolation; that is the single most important thing to fix, and it gates
-  any hosted exposure.
+  Running a user-programmable interpreter as a network daemon without resource
+  isolation reflected the deployment norms of the reference's era; current
+  security standards call for sandbox-by-construction, and adopting that pattern
+  is the single most important requirement of the rebuild — it gates any hosted
+  exposure.
 
 ### Admin, powers & moderation (from D4)
 - **GM-R15 [core]** — a graded capability model (owner → builder → wizard → god
@@ -99,7 +102,8 @@ intent). These are *what*, not *how*.
   destruction with audit.
 - **GM-R17 [faithful]** — in-world mail between players.
 - **GM-R18 [modernize]** — modern authentication: a salted KDF (argon2/bcrypt
-  class) replaces legacy fixed-salt DES password hashing; **no default god/wizard
+  class) is today's standard in place of the era's fixed-salt DES password
+  hashing; **no default god/wizard
   credentials ship** — first boot provisions the god account with a rotated
   secret.
 
@@ -110,6 +114,15 @@ intent). These are *what*, not *how*.
   page](/museum/) documents "this is the artifact we studied," with the MUD/MUSE
   lineage and MicroMUSE history — never presented as GenMURK's own code or
   identity, never wired into CI or the running product.
+- **GM-R22 [faithful — onboarding]** — **end-user command-set compatibility
+  (STEERCO minimum bar):** GenMURK supports at minimum the same player-facing
+  command set — verb names and invocation syntax — as the TinyMUSE/MicroMUSE
+  reference, so **historic users onboard with minimal relearning.** The surface
+  is preserved; the implementations are GenMURK's own and the security model is
+  modernized (GM-R14). The canonical command list is a preservation task (drawn
+  from the behavioral reference and historic-user knowledge, tracked separately);
+  where a reference command conflicts with the sandbox requirement, the safe
+  behavior wins and the divergence is documented.
 
 ## Where these go next
 

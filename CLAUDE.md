@@ -1,6 +1,6 @@
 # CLAUDE.md — genmurk
 
-GenMURK — a modern multiplayer text world (MUD/MUSE): a clean-room rebuild inspired by the TinyMUSE engine and the mid-90s MIT MicroMUSE instance (historical reference, not adopted). Build-in-public living docs here; the app lives at genmurk.com.
+GenMURK — a modern multiplayer text world (MUD/MUSE): a clean-room rebuild inspired by the TinyMUSE engine and the early-1990s MIT MicroMUSE instance (historical reference, not adopted). Build-in-public living docs here; the app lives at genmurk.com.
 
 This is a project repo of the **Bussetech Software Studio** — an agentic system that
 manages a GitHub org, its repos, and their web presence with minimal human

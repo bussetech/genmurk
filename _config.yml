@@ -7,7 +7,7 @@
 # Theme: pinned tag, never a branch (theme docs/versioning.md). Bump
 # canary-first when a new theme version ships.
 title: genmurk
-description: "GenMURK — a modern multiplayer text world (MUD/MUSE): a clean-room rebuild inspired by the TinyMUSE engine and the mid-90s MIT MicroMUSE instance (historical reference, not adopted). Build-in-public living docs here; the app lives at genmurk.com."
+description: "GenMURK — a modern multiplayer text world (MUD/MUSE): a clean-room rebuild inspired by the TinyMUSE engine and the early-1990s MIT MicroMUSE instance (historical reference, not adopted). Build-in-public living docs here; the app lives at genmurk.com."
 lang: en
 url: "https://genmurk.bussetech.com"
 baseurl: ""

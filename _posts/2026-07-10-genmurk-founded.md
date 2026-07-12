@@ -16,7 +16,7 @@ is the build log, and it starts with real ground already covered:
   softcode runtime leads ([backlog](/backlog/)).
 - **Architecture direction is recorded,** with one call honestly still open
   ([decisions](/decisions/)).
-- **The artifact we studied is on the record** — TinyMUSE and the mid-90s MIT
+- **The artifact we studied is on the record** — TinyMUSE and the early-1990s MIT
   MicroMUSE instance, as lineage and reference only, never GenMURK's identity
   ([museum](/museum/)).
 

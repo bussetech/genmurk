@@ -14,7 +14,7 @@ GenMURK is the studio's **c-archetype build 2** — the decompose-and-rebuild of
 living system that cannot run on modern architecture. It is a **clean-room
 rebuild on modern architecture**, worked from decomposed requirements
 (`requirements.md`), **not** an adoption or line-by-line port of the original
-**TinyMUSE** engine. TinyMUSE (© 1989–1995) and the mid-90s MIT **MicroMUSE**
+**TinyMUSE** engine. TinyMUSE (© 1989–1995) and the early-1990s MIT **MicroMUSE**
 instance are the **historical behavioral reference** being studied — named as
 lineage on the museum/history pages, **never** as the product's identity. The
 name honors the MUD/MUSE family (MURK — the earthy sibling of mud/muck/mush).
@@ -27,7 +27,7 @@ Survey inputs (consumed, not re-audited): `docs/intake/surveys/busse-tinymuse.md
 
 - **Product / repo / knoll / registry slug:** `genmurk`.
 - **Lineage (reference only, recorded in the registry description):** a
-  clean-room rebuild inspired by **TinyMUSE** and the mid-90s MIT **MicroMUSE**
+  clean-room rebuild inspired by **TinyMUSE** and the early-1990s MIT **MicroMUSE**
   instance (historical reference and history-page material) — **not** an adoption
   of either.
 - TinyMUSE / MicroMUSE appear as lineage on the museum and history pages, never
@@ -53,7 +53,7 @@ repo does not exist yet; it lands with the sysop's founding act.
   - name: genmurk
     subdomain: genmurk          # docs living-docs site → genmurk.bussetech.com
     status: active
-    description: "GenMURK — a modern, multiplayer text world (MUD/MUSE): a clean-room rebuild on modern architecture, inspired by the TinyMUSE engine and the mid-90s MIT MicroMUSE instance (historical reference, not adopted). Build-in-public living docs here; the running app lives at genmurk.com."
+    description: "GenMURK — a modern, multiplayer text world (MUD/MUSE): a clean-room rebuild on modern architecture, inspired by the TinyMUSE engine and the early-1990s MIT MicroMUSE instance (historical reference, not adopted). Build-in-public living docs here; the running app lives at genmurk.com."
     visibility: public
     listed: true
     archetype: saas             # the REBUILD is a saas app (Workers + Supabase); it ENTERED via brownfield intake

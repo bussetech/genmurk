@@ -4,7 +4,7 @@
 
 The studio's decompose-and-rebuild of a living system that can't run on modern
 architecture. **Clean rebuild**, worked from decomposed requirements — the
-original **TinyMUSE** engine (and the mid-90s MIT **MicroMUSE** instance) are a
+original **TinyMUSE** engine (and the early-1990s MIT **MicroMUSE** instance) are a
 **historical behavioral reference**, never adopted, never ported, never the
 product's identity. Ruling of record:
 `docs/steerco/2026-07-10-brownfield-decompose-rebuild.md`.
