@@ -7,6 +7,8 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { pathToFileURL } from "node:url";
 import { RecordingWorld } from "./world.ts";
+import { createSeedWorld } from "./seed-world.ts";
+import type { WorldAPI } from "../../src/engine/types.js";
 import type {
   CreateEngine,
   RunOutcome,
@@ -17,6 +19,15 @@ import type { Fixture } from "./types.ts";
 interface WorkerInput {
   fixture: Fixture;
   engineModulePath: string;
+  /** run against the REAL world model (src/world) instead of the toy — AC4. */
+  realWorld?: boolean;
+}
+
+// A world impl that exposes the journaled mutations both worlds carry.
+type ProofWorld = WorldAPI & { readonly mutations: { op: string; target: string; detail: string }[] };
+
+function makeWorld(fixture: Fixture, real: boolean): ProofWorld {
+  return real ? createSeedWorld(fixture.world) : new RecordingWorld(fixture.world);
 }
 
 interface WorkerResult {
@@ -26,14 +37,14 @@ interface WorkerResult {
   error?: string;
 }
 
-const { fixture, engineModulePath } = workerData as WorkerInput;
+const { fixture, engineModulePath, realWorld } = workerData as WorkerInput;
 
 async function main(): Promise<void> {
   const mod = (await import(pathToFileURL(engineModulePath).href)) as {
     createEngine: CreateEngine;
   };
   const engine = mod.createEngine({ instrumentation: true });
-  const world = new RecordingWorld(fixture.world);
+  const world = makeWorld(fixture, realWorld ?? false);
 
   const requests: RunRequest[] = fixture.runs.map((r) => ({
     actor: r.actor,
@@ -53,7 +64,7 @@ async function main(): Promise<void> {
   };
 
   if (fixture.integrityProbe) {
-    const probeWorld = new RecordingWorld();
+    const probeWorld = makeWorld({ ...fixture, world: undefined }, realWorld ?? false);
     result.integrity = engine.run(
       {
         actor: "#1",

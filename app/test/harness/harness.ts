@@ -32,6 +32,11 @@ const APP_ROOT = resolve(HERE, "../..");
 const FIXTURE_DIR = join(APP_ROOT, "test/softcode-adversarial/fixtures");
 const WORKER = join(HERE, "run-fixture.ts");
 
+// AC4: with GENMURK_REAL_WORLD=1 the same pack runs against the production
+// world model (src/world) in place of the toy recording world — proving
+// budgets and refusals hold across the real permission/inheritance machinery.
+const REAL_WORLD = process.env["GENMURK_REAL_WORLD"] === "1";
+
 interface WorkerResult {
   outcomes: RunOutcome[];
   mutations: { op: string; target: string; detail: string }[];
@@ -49,7 +54,7 @@ function runInWorker(fixture: Fixture, engineModulePath: string): Promise<RunRep
   const started = Date.now();
   return new Promise((resolvePromise) => {
     const worker = new Worker(WORKER, {
-      workerData: { fixture, engineModulePath },
+      workerData: { fixture, engineModulePath, realWorld: REAL_WORLD },
     });
     let settled = false;
     const finish = (r: RunReport) => {
@@ -213,6 +218,7 @@ async function main(): Promise<void> {
 
   console.log(`\nGenMURK softcode adversarial proof harness`);
   console.log(`engine: ${status.engineModule}  (status: ${status.status})`);
+  console.log(`world:  ${REAL_WORLD ? "REAL (src/world) — AC4 swap" : "toy recording world"}`);
   console.log(`fixtures: ${fixtures.length}\n`);
 
   const watchdogOk = await watchdogSelfTest();
