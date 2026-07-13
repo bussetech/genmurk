@@ -85,13 +85,18 @@ data (infinite loops, fork bombs, allocation bombs, recursion, injection,
 escape attempts, budget-boundary probes) — run by a **proof harness** that
 executes each fixture against any engine build in an isolated worker with an
 external wall-clock watchdog, and emits a pass/fail table. The harness is wired
-into the app CI job and runs on every engine change. Today it runs against an
-honest **stub** — proving its own plumbing and printing *SANDBOX NOT PROVEN*;
-when the first real engine flips `app/engine-status.json` to `candidate`, the
-same job becomes the **hard gate**, and an all-green table is the recorded
-evidence required **before any hosted exposure.** Nothing about GenMURK is
-hosted, exposed, or demoed beyond localhost until that table is green — the
-epic's spine. *(GENMURK-EPIC1-02 engine spike.)*
+into the app CI job and runs on every engine change. As of GENMURK-EPIC1-03
+the **real engine** (`src/engine/`, a metered AST-walker per the design
+record) carries status **`candidate`**, so the job runs in **hard-gate mode
+— and the table is GREEN** (21 fixtures, 8 attack classes, incl. two found
+while building: a parser-nesting bomb and a match-backtracking bomb). That
+green table is the recorded GM-R14 evidence this gate exists to produce.
+The gate is standing, not historical: the pack only grows, every engine
+change re-proves it, and nothing about GenMURK is hosted, exposed, or demoed
+beyond localhost on the strength of a green table alone — hosted exposure
+additionally needs its own authorization (EPIC5/STEERCO). The stub remains
+for the harness's plumbing self-test. *(GENMURK-EPIC1-02 spike;
+GENMURK-EPIC1-03 engine core.)*
 
 ### The app lives in this repo, under `app/`
 The GenMURK application code is built **in this repo**, under `app/` — the
