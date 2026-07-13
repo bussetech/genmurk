@@ -1,0 +1,13 @@
+{
+  "name": "02-cpu-infinite-eval-chain",
+  "attackClass": "cpu-step-exhaustion",
+  "description": "An attribute that re-evaluates itself forever via ctl.eval + obj.getAttr. Either the step budget or the recursion limit may trip first depending on the engine's charge ordering — both are acceptable; a hang or crash is not.",
+  "budget": { "steps": 10000, "recursionDepth": 32, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "world": { "objects": { "#1": { "owner": "#1", "attrs": { "LOOP": "ctl.eval(obj.getAttr(me, \"LOOP\"))" } } } },
+  "runs": [
+    { "actor": "#1", "program": "obj.callAttr(me, \"LOOP\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["STEP_BUDGET_EXCEEDED", "RECURSION_LIMIT_EXCEEDED"], "mutations": [] }
+  ]
+}

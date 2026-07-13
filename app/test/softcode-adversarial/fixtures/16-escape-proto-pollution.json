@@ -1,0 +1,13 @@
+{
+  "name": "16-escape-proto-pollution",
+  "attackClass": "sandbox-escape",
+  "description": "Prototype-pollution payloads as attribute names/values: __proto__, constructor, prototype. Because attributes live in Maps (never as object properties) these are inert data. Setting attr __proto__ on my own object is a legal, journaled write of a literal attribute named __proto__; it must NOT mutate any JS prototype. The integrity probe afterwards proves the engine still computes correctly (num.add(1,1) => 2).",
+  "budget": { "steps": 10000, "recursionDepth": 8, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "runs": [
+    { "actor": "#1", "program": "obj.setAttr(me, \"__proto__\", \"polluted\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["completed"], "mutations": [ { "op": "setAttr", "target": "#1", "detail": "__proto__=polluted" } ] }
+  ],
+  "integrityProbe": true
+}

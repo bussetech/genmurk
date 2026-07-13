@@ -1,0 +1,14 @@
+{
+  "name": "12-starvation-victim-completes",
+  "attackClass": "scheduler-starvation",
+  "description": "The fairness proof: an attacker submits a step-bomb; a victim submits one trivial emit. Under per-owner round-robin scheduling the victim's run must COMPLETE with its output intact, whatever happens to the attacker's. This fixture runs through runMany (the scheduler path).",
+  "budget": { "steps": 5000, "recursionDepth": 32, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 10485760, "wallClockMs": 2000 },
+  "runs": [
+    { "actor": "#1", "program": "ctl.iter(str.trim(str.repeat(\"x \", 20000)), \"t.noop()\")" },
+    { "actor": "#2", "program": "out.emit(\"still here\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["STEP_BUDGET_EXCEEDED"], "mutations": [] },
+    { "statusAnyOf": ["completed"], "mutations": [], "output": ["still here"] }
+  ]
+}

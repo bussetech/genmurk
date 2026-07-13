@@ -1,0 +1,18 @@
+{
+  "name": "genmurk-app",
+  "private": true,
+  "type": "module",
+  "description": "GenMURK application — softcode engine + world server (GENMURK-EPIC1). Pre-PROD; the app never deploys to the docs Pages site.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "proof": "node test/harness/harness.ts",
+    "test": "npm run typecheck && npm run proof"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "5.7.3"
+  }
+}

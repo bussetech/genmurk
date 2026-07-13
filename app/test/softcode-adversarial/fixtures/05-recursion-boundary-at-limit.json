@@ -1,0 +1,22 @@
+{
+  "name": "05-recursion-boundary-at-limit",
+  "attackClass": "budget-boundary",
+  "description": "A deterministic 8-frame call chain (D1..D8) under recursionDepth 8: exactly at the limit must COMPLETE. Budgets that refuse early are as much a defect as budgets that refuse late.",
+  "budget": { "steps": 100000, "recursionDepth": 8, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "world": { "objects": { "#1": { "owner": "#1", "attrs": {
+    "D1": "obj.callAttr(me, \"D2\")",
+    "D2": "obj.callAttr(me, \"D3\")",
+    "D3": "obj.callAttr(me, \"D4\")",
+    "D4": "obj.callAttr(me, \"D5\")",
+    "D5": "obj.callAttr(me, \"D6\")",
+    "D6": "obj.callAttr(me, \"D7\")",
+    "D7": "obj.callAttr(me, \"D8\")",
+    "D8": "t.noop()"
+  } } } },
+  "runs": [
+    { "actor": "#1", "program": "obj.callAttr(me, \"D1\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["completed"], "mutations": [] }
+  ]
+}

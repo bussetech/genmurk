@@ -1,0 +1,12 @@
+{
+  "name": "08-steps-boundary-plus-one",
+  "attackClass": "budget-boundary",
+  "description": "t.burn(101) under a 100-step budget: one fuel unit past the limit must refuse.",
+  "budget": { "steps": 100, "recursionDepth": 8, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "runs": [
+    { "actor": "#1", "program": "t.burn(101)" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["STEP_BUDGET_EXCEEDED"], "mutations": [] }
+  ]
+}

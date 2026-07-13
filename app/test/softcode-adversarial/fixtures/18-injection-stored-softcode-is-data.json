@@ -1,0 +1,40 @@
+{
+  "name": "18-injection-stored-softcode-is-data",
+  "attackClass": "injection",
+  "description": "Softcode stored in an attribute must be inert on a raw read: obj.getAttr returns the TEXT of the attribute, it is not re-evaluated. PAYLOAD contains a call that would emit 'pwned' if evaluated; reading it must yield the literal source string and never the effect. (Deliberate re-evaluation exists only via the explicit ctl.eval / obj.callAttr path.)",
+  "budget": {
+    "steps": 10000,
+    "recursionDepth": 8,
+    "enqueuePerRun": 8,
+    "queueDepthPerOwner": 16,
+    "allocationBytes": 1048576,
+    "wallClockMs": 2000
+  },
+  "world": {
+    "objects": {
+      "#1": {
+        "owner": "#1",
+        "attrs": {
+          "PAYLOAD": "out.emit(\"pwned\")"
+        }
+      }
+    }
+  },
+  "runs": [
+    {
+      "actor": "#1",
+      "program": "out.emit(obj.getAttr(me, \"PAYLOAD\"))"
+    }
+  ],
+  "expect": [
+    {
+      "statusAnyOf": [
+        "completed"
+      ],
+      "mutations": [],
+      "output": [
+        "out.emit(\"pwned\")"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "06-recursion-boundary-plus-one",
+  "attackClass": "budget-boundary",
+  "description": "The same 8-frame chain under recursionDepth 7: one frame past the limit must refuse deterministically.",
+  "budget": { "steps": 100000, "recursionDepth": 7, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "world": { "objects": { "#1": { "owner": "#1", "attrs": {
+    "D1": "obj.callAttr(me, \"D2\")",
+    "D2": "obj.callAttr(me, \"D3\")",
+    "D3": "obj.callAttr(me, \"D4\")",
+    "D4": "obj.callAttr(me, \"D5\")",
+    "D5": "obj.callAttr(me, \"D6\")",
+    "D6": "obj.callAttr(me, \"D7\")",
+    "D7": "obj.callAttr(me, \"D8\")",
+    "D8": "t.noop()"
+  } } } },
+  "runs": [
+    { "actor": "#1", "program": "obj.callAttr(me, \"D1\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["RECURSION_LIMIT_EXCEEDED"], "mutations": [] }
+  ]
+}

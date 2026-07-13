@@ -27,3 +27,33 @@ jobs:
   data:
     if: ${{ github.repository_owner == 'bussetech' }}
     uses: bussetech/ci/.github/workflows/reusable-data-ci.yml@v1
+
+  # app — the GenMURK application job (GENMURK-EPIC1, app-home ruling
+  # platform#317: CI split site/app). Project-owned: typecheck + the
+  # softcode adversarial proof harness (GM-R14). While the engine is a stub
+  # the harness proves its own plumbing and prints SANDBOX NOT PROVEN; once
+  # a real engine flips app/engine-status.json to "candidate" the same job
+  # becomes the HARD GATE — an all-green table is the recorded evidence
+  # required before any hosted exposure. This is NOT reusable-app-ci: that
+  # shell's deploy-lint is for pure saas repos and would reject this repo's
+  # Pages docs deploy; the app here is pre-PROD and owns its own CI.
+  app:
+    if: ${{ github.repository_owner == 'bussetech' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.2.2
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          # Node 24: native TypeScript type-stripping is on by default, so
+          # the harness runs `.ts` (incl. worker threads) with no build step.
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Typecheck + softcode adversarial proof
+        run: npm test

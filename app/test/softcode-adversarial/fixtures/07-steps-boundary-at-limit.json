@@ -1,0 +1,12 @@
+{
+  "name": "07-steps-boundary-at-limit",
+  "attackClass": "budget-boundary",
+  "description": "t.burn(100) under a 100-step budget: exactly at the fuel limit must COMPLETE (t.burn's n is the total charge including its entry charge, by pack convention).",
+  "budget": { "steps": 100, "recursionDepth": 8, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "runs": [
+    { "actor": "#1", "program": "t.burn(100)" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["completed"], "mutations": [] }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "01-cpu-big-iteration",
+  "attackClass": "cpu-step-exhaustion",
+  "description": "Iterate a 20,000-element list under a 5,000-step budget. Every ctl.iter element charges at least one fuel unit, so the run must refuse on the step budget long before the list is exhausted — without a hang and without touching the world.",
+  "budget": { "steps": 5000, "recursionDepth": 32, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 10485760, "wallClockMs": 2000 },
+  "runs": [
+    { "actor": "#1", "program": "ctl.iter(str.trim(str.repeat(\"x \", 20000)), \"t.noop()\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["STEP_BUDGET_EXCEEDED"], "mutations": [] }
+  ]
+}

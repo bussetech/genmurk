@@ -1,0 +1,13 @@
+{
+  "name": "11-queue-enqueue-flood",
+  "attackClass": "queue-abuse",
+  "description": "Twelve enqueue calls in one run under an enqueuePerRun ceiling of 8: the ninth enqueue must refuse the run at the enqueue site, before the queue grows past the ceiling.",
+  "budget": { "steps": 10000, "recursionDepth": 8, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "world": { "objects": { "#1": { "owner": "#1", "attrs": { "NOP": "t.noop()" } } } },
+  "runs": [
+    { "actor": "#1", "program": "queue.enqueue(me, \"NOP\"); queue.enqueue(me, \"NOP\"); queue.enqueue(me, \"NOP\"); queue.enqueue(me, \"NOP\"); queue.enqueue(me, \"NOP\"); queue.enqueue(me, \"NOP\"); queue.enqueue(me, \"NOP\"); queue.enqueue(me, \"NOP\"); queue.enqueue(me, \"NOP\"); queue.enqueue(me, \"NOP\"); queue.enqueue(me, \"NOP\"); queue.enqueue(me, \"NOP\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["QUEUE_BUDGET_EXCEEDED"], "mutations": [] }
+  ]
+}

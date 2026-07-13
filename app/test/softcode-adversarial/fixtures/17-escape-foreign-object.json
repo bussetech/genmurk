@@ -1,0 +1,12 @@
+{
+  "name": "17-escape-foreign-object",
+  "attackClass": "sandbox-escape",
+  "description": "Read a foreign object's secret attribute. #900 is owned by #902; the attacker is #1. The world refuses the read (PERMISSION_DENIED), the run surfaces that refusal, the secret never appears in output, and nothing is mutated. Proves the second wall (WorldAPI permission checks) and that refusals do not leak the protected value.",
+  "budget": { "steps": 10000, "recursionDepth": 8, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "runs": [
+    { "actor": "#1", "program": "out.emit(obj.getAttr(#900, \"SECRET\"))" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["PERMISSION_DENIED"], "mutations": [], "outputMustNotContain": ["swordfish"] }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "15-escape-host-global",
+  "attackClass": "sandbox-escape",
+  "description": "Reach for host capabilities by name: globalThis, process, require, Function, fetch. None exist in the interpreter's world, so each must resolve to UNKNOWN_FUNCTION with no output and no mutation. Escape is not denied — it is absent.",
+  "budget": { "steps": 10000, "recursionDepth": 8, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "runs": [
+    { "actor": "#1", "program": "require(\"fs\")" },
+    { "actor": "#1", "program": "globalThis" },
+    { "actor": "#1", "program": "Function(\"return process\")()" },
+    { "actor": "#1", "program": "fetch(\"http://169.254.169.254/\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["UNKNOWN_FUNCTION", "INVALID_PROGRAM"], "mutations": [] },
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["UNKNOWN_FUNCTION", "INVALID_PROGRAM"], "mutations": [] },
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["UNKNOWN_FUNCTION", "INVALID_PROGRAM"], "mutations": [] },
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["UNKNOWN_FUNCTION", "INVALID_PROGRAM"], "mutations": [] }
+  ]
+}
