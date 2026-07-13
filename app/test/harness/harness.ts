@@ -73,6 +73,23 @@ function runInWorker(fixture: Fixture, engineModulePath: string): Promise<RunRep
         ms: Date.now() - started,
       }),
     );
+    // A worker that exits WITHOUT posting a result and without an 'error'
+    // event (an engine that calls process.exit, or drains the event loop
+    // silently) would otherwise only settle via the watchdog and be
+    // mislabelled a HANG. Report it as the crash it is — precise failure
+    // diagnosis is the point of a proof harness. Normal completion posts a
+    // 'message' first, so this handler no-ops there via the settled guard.
+    worker.on("exit", (code) =>
+      finish({
+        kind: "result",
+        result: {
+          outcomes: [],
+          mutations: [],
+          error: `worker exited (code ${code}) before returning a result`,
+        },
+        ms: Date.now() - started,
+      }),
+    );
   });
 }
 
@@ -212,17 +229,17 @@ async function main(): Promise<void> {
       cls: fx.attackClass,
       ok: err === null,
       note: err ?? "ok",
-      ms: report.kind === "hang" ? report.ms : report.ms,
+      ms: report.ms,
     });
   }
 
   const nameW = Math.max(...rows.map((r) => r.name.length), 4);
   const clsW = Math.max(...rows.map((r) => r.cls.length), 5);
-  console.log(`  ${"FIXTURE".padEnd(nameW)}  ${"CLASS".padEnd(clsW)}  RESULT   NOTE`);
-  console.log(`  ${"-".repeat(nameW)}  ${"-".repeat(clsW)}  ------   ----`);
+  console.log(`  ${"FIXTURE".padEnd(nameW)}  ${"CLASS".padEnd(clsW)}  RESULT   ${"TIME".padStart(6)}  NOTE`);
+  console.log(`  ${"-".repeat(nameW)}  ${"-".repeat(clsW)}  ------   ${"----".padStart(6)}  ----`);
   for (const r of rows) {
     const mark = r.ok ? "PASS" : "FAIL";
-    console.log(`  ${r.name.padEnd(nameW)}  ${r.cls.padEnd(clsW)}  ${mark.padEnd(7)}  ${r.note}`);
+    console.log(`  ${r.name.padEnd(nameW)}  ${r.cls.padEnd(clsW)}  ${mark.padEnd(7)}  ${`${r.ms}ms`.padStart(6)}  ${r.note}`);
   }
 
   const passed = rows.filter((r) => r.ok).length;
