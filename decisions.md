@@ -60,6 +60,39 @@ world, building things inside it through the softcode the same way a player
 would. Owning the engine end to end is what makes that possible; a borrowed VM
 would not.
 
+### How we build it: a metered AST-walker, sandboxed by construction
+The engine (GM-R11 / GM-R14) is a **tree-walking interpreter in TypeScript**,
+running inside the same Workers-class isolate as the server — not a bytecode VM
+(for v1), and (per the decision above) not a wrapper around any off-the-shelf
+VM. On Workers-class compute there is no OS-level isolation to lean on, so the
+sandbox lives in the interpreter's own structure: a single `evaluate()` choke
+point charges a **fuel** budget before doing any work, which makes *no
+unmetered work* an auditable property of one function. The budgets are
+**first-class values** — per-invocation steps (fuel), recursion depth, queue
+enqueue/depth ceilings with fair per-owner scheduling, an allocation
+byte-account, and a wall-clock backstop — each enforced by mechanism, not
+intention. Escape is *absent, not denied*: the interpreter's world holds only
+string values and the world-model API handle it is given; no host, network,
+filesystem, or import capability exists to reach for. The engine seam
+(`app/src/engine/types.ts`) is kept so a faster implementation can replace the
+walker post-v1 behind the same interface and the same proof. Design of record:
+**`app/docs/engine-design.md`**; the v1 function-library contract:
+**`app/docs/function-library-v1.md`**. *(GENMURK-EPIC1-02 engine spike.)*
+
+### The sandbox is proven by an adversarial harness, wired as the CI gate
+GM-R14 is enforced by an **adversarial fixture pack** — hostile programs as
+data (infinite loops, fork bombs, allocation bombs, recursion, injection,
+escape attempts, budget-boundary probes) — run by a **proof harness** that
+executes each fixture against any engine build in an isolated worker with an
+external wall-clock watchdog, and emits a pass/fail table. The harness is wired
+into the app CI job and runs on every engine change. Today it runs against an
+honest **stub** — proving its own plumbing and printing *SANDBOX NOT PROVEN*;
+when the first real engine flips `app/engine-status.json` to `candidate`, the
+same job becomes the **hard gate**, and an all-green table is the recorded
+evidence required **before any hosted exposure.** Nothing about GenMURK is
+hosted, exposed, or demoed beyond localhost until that table is green — the
+epic's spine. *(GENMURK-EPIC1-02 engine spike.)*
+
 ### The app lives in this repo, under `app/`
 The GenMURK application code is built **in this repo**, under `app/` — the
 studio's standard SaaS-stratum app layout (`wrangler.toml`, `supabase/`,

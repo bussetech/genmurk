@@ -1,0 +1,12 @@
+{
+  "name": "13-alloc-repeat-bomb",
+  "attackClass": "allocation",
+  "description": "Nested str.repeat building a ~16MB string against a 1MB allocation account. The inner repeat (4KB) is fine; the outer construction must refuse on the byte account — metered constructors charge the size of what they build, not 1.",
+  "budget": { "steps": 100000, "recursionDepth": 8, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "runs": [
+    { "actor": "#1", "program": "str.repeat(str.repeat(\"A\", 4096), 4096)" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["ALLOCATION_BUDGET_EXCEEDED"], "mutations": [] }
+  ]
+}

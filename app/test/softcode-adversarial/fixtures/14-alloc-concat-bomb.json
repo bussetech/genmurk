@@ -1,0 +1,13 @@
+{
+  "name": "14-alloc-concat-bomb",
+  "attackClass": "allocation",
+  "description": "The concatenation vector: build 500KB legally, then concat it with itself against a 600KB account. The concat result (1MB) exceeds the account and must refuse — concatenation charges result size.",
+  "budget": { "steps": 100000, "recursionDepth": 8, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 614400, "wallClockMs": 2000 },
+  "world": { "objects": { "#1": { "owner": "#1", "attrs": { "BIG": "str.repeat(\"A\", 512000)" } } } },
+  "runs": [
+    { "actor": "#1", "program": "str.concat(obj.callAttr(me, \"BIG\"), obj.callAttr(me, \"BIG\"))" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["ALLOCATION_BUDGET_EXCEEDED"], "mutations": [] }
+  ]
+}

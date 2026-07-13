@@ -1,0 +1,5 @@
+{
+  "status": "stub",
+  "engineModule": "./src/engine/stub.ts",
+  "note": "No real engine yet. The proof harness runs in plumbing-proof mode and prints SANDBOX NOT PROVEN. The first real engine (prompt 03) flips status to 'candidate' and must make the adversarial table all-green — that green run is the GM-R14 gate evidence for any hosted exposure."
+}

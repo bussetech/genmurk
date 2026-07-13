@@ -1,0 +1,33 @@
+{
+  "name": "19-injection-substitution-not-recursive",
+  "attackClass": "injection",
+  "description": "Substitution is a single pass: a register whose value looks like softcode is expanded once to TEXT and not re-scanned. %0 carries a would-be call; the run must emit the literal text of %0, not execute it.",
+  "budget": {
+    "steps": 10000,
+    "recursionDepth": 8,
+    "enqueuePerRun": 8,
+    "queueDepthPerOwner": 16,
+    "allocationBytes": 1048576,
+    "wallClockMs": 2000
+  },
+  "runs": [
+    {
+      "actor": "#1",
+      "program": "out.emit(%0)",
+      "args": [
+        "out.emit(\"nested\")"
+      ]
+    }
+  ],
+  "expect": [
+    {
+      "statusAnyOf": [
+        "completed"
+      ],
+      "mutations": [],
+      "output": [
+        "out.emit(\"nested\")"
+      ]
+    }
+  ]
+}

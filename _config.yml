@@ -83,3 +83,8 @@ exclude:
   - LICENSE
   - gnomes/
   - docs/
+  # app/ is the GenMURK application (GENMURK-EPIC1, app-home ruling
+  # platform#317): built in this repo, never part of the docs site. The
+  # two-surfaces law is about deploy targets — the app never deploys to
+  # these Pages, and the Jekyll build excludes it entirely.
+  - app/

@@ -1,0 +1,12 @@
+{
+  "name": "09-wallclock-backstop",
+  "attackClass": "budget-boundary",
+  "description": "A huge fuel budget with a tight wall-clock ceiling: t.burn(900,000,000) cannot finish inside 200ms, so the wall-clock backstop must refuse (the step budget is set high enough that fuel will not trip first). Proves the backstop is real, not decorative.",
+  "budget": { "steps": 1000000000, "recursionDepth": 8, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 200 },
+  "runs": [
+    { "actor": "#1", "program": "t.burn(900000000)" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["WALL_CLOCK_EXCEEDED"], "mutations": [] }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "10-queue-fork-bomb",
+  "attackClass": "queue-abuse",
+  "description": "A self-replicating queue entry: BOMB enqueues BOMB twice. Growth must die at the enqueue site (per-run ceiling) or at the owner's queue-depth cap. The submitted run may complete (its own two enqueues are legal) or refuse; the scheduler must drain to termination — the watchdog fails this fixture if the queue explodes into a hang.",
+  "budget": { "steps": 10000, "recursionDepth": 8, "enqueuePerRun": 2, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "world": { "objects": { "#1": { "owner": "#1", "attrs": { "BOMB": "queue.enqueue(me, \"BOMB\"); queue.enqueue(me, \"BOMB\")" } } } },
+  "runs": [
+    { "actor": "#1", "program": "obj.callAttr(me, \"BOMB\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["completed", "refused"], "refusalCodesAnyOf": ["QUEUE_BUDGET_EXCEEDED"], "mutations": [] }
+  ]
+}

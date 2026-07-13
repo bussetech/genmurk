@@ -1,0 +1,13 @@
+{
+  "name": "03-recursion-direct",
+  "attackClass": "recursion",
+  "description": "An attribute-held function that calls itself directly. The step budget is deliberately generous so the recursion limit is what must refuse — depth is charged where the frame is created.",
+  "budget": { "steps": 1000000, "recursionDepth": 32, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "world": { "objects": { "#1": { "owner": "#1", "attrs": { "REC": "obj.callAttr(me, \"REC\")" } } } },
+  "runs": [
+    { "actor": "#1", "program": "obj.callAttr(me, \"REC\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["RECURSION_LIMIT_EXCEEDED"], "mutations": [] }
+  ]
+}

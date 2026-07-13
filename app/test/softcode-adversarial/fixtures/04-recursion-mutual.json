@@ -1,0 +1,13 @@
+{
+  "name": "04-recursion-mutual",
+  "attackClass": "recursion",
+  "description": "Two attributes calling each other (A -> B -> A). Mutual recursion must hit the same depth wall as direct self-calls, because depth is charged per frame, not per attribute name.",
+  "budget": { "steps": 1000000, "recursionDepth": 32, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "world": { "objects": { "#1": { "owner": "#1", "attrs": { "A": "obj.callAttr(me, \"B\")", "B": "obj.callAttr(me, \"A\")" } } } },
+  "runs": [
+    { "actor": "#1", "program": "obj.callAttr(me, \"A\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["RECURSION_LIMIT_EXCEEDED"], "mutations": [] }
+  ]
+}
