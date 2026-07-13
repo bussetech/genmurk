@@ -5,11 +5,12 @@
 > the early-1990s MIT **MicroMUSE** instance are the *historical behavioral
 > reference* being studied — never adopted, never ported line-by-line, never the
 > product's identity. Provenance rule: every requirement below is written from
-> **observed behavior** (the intake survey `docs/intake/surveys/busse-tinymuse.md`
-> + register `.intake.yml`), and the rebuild cites **these requirements**, never
+> **observed behavior** (the control-plane TinyMUSE intake survey + register),
+> and the rebuild cites **these requirements**, never
 > original TinyMUSE source lines. The original engine is licensed
 > non-commercial-educational-only; nothing commercial is claimed for it.
-> STEERCO ruling of record: `docs/steerco/2026-07-10-brownfield-decompose-rebuild.md`.
+> STEERCO ruling of record: the brownfield decompose-and-rebuild ruling of
+> 2026-07-10 (control plane).
 
 ## 0. Why this document exists
 
