@@ -70,8 +70,7 @@ about *deploy targets*, and it is unchanged — the app never deploys to these
 Pages. The named alternative, a second repo via the studio factory, was argued
 and declined for now: it is a founding act (registry, DNS, protection) that
 buys nothing while the app is pre-PROD, and it remains available later as a
-move, not a rewrite. *(Sysop ruling: platform#317 — default stands
-2026-07-14.)*
+move, not a rewrite. *(Sysop ruling: platform#317, ruled 2026-07-12.)*
 
 ### End-user command-set compatibility (STEERCO minimum bar)
 GenMURK supports **at minimum the same end-user command set** — player-facing
