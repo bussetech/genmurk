@@ -5,24 +5,35 @@ plane of the `bussetech/genmurk` repo (app-home ruling, platform#317): built
 here, **never deployed to the docs Pages site** (`app/` is excluded from the
 Jekyll build). Pre-PROD — hosting is platform EPIC5 work.
 
-## What exists today (GENMURK-EPIC1-02, the engine spike)
+## What exists today (GENMURK-EPIC1-03: engine core v0, sandbox GREEN)
 
-This is the **design + proof-harness spike**, not the engine. It establishes
-the sandbox contract (GM-R14) and the standing gate that any real engine must
-pass, before a line of interpreter logic is written.
+The softcode engine is real: a metered AST-walker implementing the design
+record, with the full v1 function library, the queue + fair scheduler, and
+**the adversarial pack green in gate mode** — the GM-R14 evidence. Still
+localhost + CI only; nothing is hosted (the gate governs exposure, and PROD
+is EPIC5/STEERCO territory).
 
 ```
 app/
 ├─ docs/
-│  ├─ engine-design.md          # design of record: model, budgets, why-it-can't-escape
+│  ├─ engine-design.md          # design of record (+ §9 implementation deltas)
 │  └─ function-library-v1.md    # v1 function-library behavioral contract
 ├─ src/engine/
 │  ├─ types.ts                  # the engine seam (Budget, RunOutcome, WorldAPI, SoftcodeEngine)
-│  ├─ stub.ts                   # honest stub — refuses everything (ENGINE_NOT_IMPLEMENTED)
+│  ├─ engine.ts                 # createEngine — the real engine (status: candidate)
+│  ├─ interpreter.ts            # the metered walker + the frozen function library
+│  ├─ scheduler.ts              # command queue: round-robin fairness, transactional enqueues
+│  ├─ parse.ts / match.ts       # bounded parser; fuel-charged GM-R12 wildcard matcher
+│  ├─ meter.ts / refusal.ts     # budgets as values; refusals as values
+│  ├─ stub.ts                   # honest stub — kept for the harness plumbing self-test
 │  └─ hang-stub.ts              # deliberately hangs; for the watchdog self-test only
 ├─ test/
 │  ├─ softcode-adversarial/     # hostile programs AS DATA — the fixture pack + its README
-│  └─ harness/                  # the proof runner (isolated worker + external watchdog)
+│  ├─ harness/                  # the proof runner (isolated worker + external watchdog)
+│  ├─ unit/                     # per-function library + parser + budget + isolation tests
+│  ├─ property/                 # seeded generative invariants (see fuzz mode below)
+│  ├─ tripwire.ts               # CI grep: no host-capability token in src/engine/
+│  └─ bench.ts                  # performance envelope probe (manual: npm run bench)
 └─ engine-status.json           # "stub" | "candidate" | "proven" — drives the harness mode
 ```
 
@@ -35,8 +46,18 @@ subsystems that need it.
 ```sh
 cd app
 npm ci
-npm test          # typecheck + the adversarial proof harness
+npm test          # typecheck + tripwire + unit/property tests + the adversarial proof
 ```
+
+Property tests run a fixed seed corpus in CI (deterministic). Local fuzz
+mode widens the search:
+
+```sh
+FUZZ_SEED=99 FUZZ_RUNS=2000 npm run unit   # any seed/volume you like
+```
+
+A failing seed becomes a regression entry in the corpus, and when the
+failure is an attack shape it becomes a pack fixture — the pack only grows.
 
 The harness discovers every fixture in `test/softcode-adversarial/fixtures/`,
 runs it against the engine named in `engine-status.json` inside an isolated

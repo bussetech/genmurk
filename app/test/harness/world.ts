@@ -73,4 +73,29 @@ export class RecordingWorld implements WorldAPI {
     // world would fan this to room occupants. The harness reads outcomes,
     // so this is intentionally a no-op sink at the world boundary.
   }
+
+  // Toy visibility for the seam extension (GENMURK-EPIC1-03): names and
+  // locations are public in this world; real GM-R15 semantics arrive with
+  // the world model (04). Names come from a NAME attr when seeded, else the
+  // object's id — enough to give the engine's fuel-charged GM-R12 matching
+  // real candidates.
+
+  name(_actor: string, target: string): string | WorldRefusal {
+    const obj = this.objects.get(target);
+    if (!obj) return { refused: "PERMISSION_DENIED" };
+    return obj.attrs.get("NAME") ?? target;
+  }
+
+  location(_actor: string, target: string): string | WorldRefusal {
+    const obj = this.objects.get(target);
+    if (!obj) return { refused: "PERMISSION_DENIED" };
+    return obj.attrs.get("LOCATION") ?? "#0";
+  }
+
+  visibleObjects(_actor: string): { id: string; name: string }[] {
+    return [...this.objects.entries()].map(([id, obj]) => ({
+      id,
+      name: obj.attrs.get("NAME") ?? id,
+    }));
+  }
 }

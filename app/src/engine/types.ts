@@ -38,6 +38,8 @@ export interface WorldMutation {
 export interface RunOutcome {
   status: "completed" | "refused";
   refusalCode?: RefusalCode;
+  /** diagnostic detail for logs and tests; never load-bearing for callers */
+  detail?: string;
   /** lines the run emitted (softcode values are strings, GM-R11) */
   output: string[];
   /** journaled world writes this run performed before completing/refusing */
@@ -62,6 +64,16 @@ export interface WorldAPI {
     value: string,
   ): true | WorldRefusal;
   emit(actor: string, text: string): void;
+  /** display name of a target (obj.name — GM-R12 name surfaces) */
+  name(actor: string, target: string): string | WorldRefusal;
+  /** location of a target (obj.location, and `here` resolution) */
+  location(actor: string, target: string): string | WorldRefusal;
+  /**
+   * candidates for GM-R12 partial-name matching, already filtered to what
+   * the actor may see. The MATCHING over these is the engine's (fuel-charged)
+   * — the world only supplies visibility.
+   */
+  visibleObjects(actor: string): { id: string; name: string }[];
 }
 
 export interface RunRequest {

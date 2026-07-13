@@ -1,10 +1,10 @@
 # GenMURK softcode engine — design of record (GENMURK-EPIC1-02 spike)
 
-**Status:** design of record for the v1 engine. No production engine exists
-yet — the current build ships a stub that refuses everything honestly, plus
-the adversarial proof harness that any real engine must pass. Implementation
-begins in the next build session and is gated by this document and that
-harness.
+**Status:** design of record for the v1 engine — **implemented as of
+GENMURK-EPIC1-03** (`src/engine/`, status `candidate`, adversarial pack
+green). Deviations made while building are recorded in **§9** with reasons;
+the mechanisms in §1–§8 are otherwise as designed and now enforced by code,
+the pack, and the unit/property test layers.
 
 **Requirements served:** GM-R11 (per-object user programmability), GM-R12
 (wildcard dispatch + name matching), GM-R13 (styled output), and above all
@@ -83,7 +83,8 @@ Two properties of the pipeline matter more than its stages:
   matching, and evaluation all charge the same per-invocation meter. There is
   no pre-budget phase where a hostile input can do unbounded work "before the
   sandbox starts."
-- **Substitution is a single pass, not a fixpoint.** The result of expanding
+- **Substitution is a single pass, not a fixpoint.** (Implementation note:
+  the pass lives at the token/AST level — see §9.1.) The result of expanding
   a register is *text*, and it is not re-scanned for further substitutions
   (data echoed into output stays data — the injection fixtures probe exactly
   this). Deliberate re-evaluation exists only as an explicit library function,
@@ -219,3 +220,70 @@ TinyMUD, or TinyMUSH source was opened, read, or fetched in its production.
 Behavioral questions the requirements do not answer are routed to the
 preservation track as issues — never resolved by consulting reference
 source.
+
+## 9. Implementation deltas (GENMURK-EPIC1-03)
+
+The engine was built to §1–§8. Where building it proved a mechanism wrong or
+incomplete, the change is recorded here with its reason — the doc stays true.
+
+1. **Substitution is token-level, not a pre-parse text splice.** `%N` lexes
+   to a register token and parses to an AST leaf; evaluation returns the
+   register's string **value**. A textual splice into source cannot be inert
+   — the expanded text would re-enter the parser as code, which is exactly
+   the injection the design forbids (fixture 19 pins the required behavior).
+   The design's "one metered pass" survives: each expansion charges fuel and
+   allocation at evaluation.
+
+2. **Fuel-charge granularity is work-unit, not AST-node.** Charges land at
+   call entry, iteration/match units, register expansion, and instrumentation
+   burns; literals are free at evaluation. Parsing charges **1 fuel per 64
+   input characters** plus the allocation account for the held source, and is
+   absolutely bounded by the input cap (`PROGRAM_MAX_CHARS` 64 KiB). Reason:
+   the boundary fixtures (07/08) demand `t.burn(n)`-total exactness — a
+   charge-per-node model would make identical work cost different fuel per
+   program shape without adding any safety; every loop remains metered.
+
+3. **The host stack is an attack surface; two ceilings bound it.** A
+   recursive-descent parser fed 600-deep nesting is a host crash, not a
+   softcode error (found while building; fixture 20). Syntactic nesting is
+   capped (`PARSE_DEPTH_MAX` 32, a typed `INVALID_PROGRAM`), and the engine
+   clamps effective recursion depth at `ENGINE_RECURSION_CEILING` 64
+   regardless of configured budget, so nesting × frames can never approach
+   the host stack (property test pins the worst legal shape). Defense in
+   depth: an unexpected host exception at the run boundary becomes a typed
+   refusal with an `internal:` detail — never a crash across the seam — and
+   the fuzz layer fails on any `internal:` sighting so defects still surface.
+
+4. **Queue termination needed two mechanisms the spike design lacked.** The
+   pending-depth cap alone cannot terminate a self-replicating chain: each
+   completed entry can replace itself at the cap and oscillate forever.
+   (a) **Enqueues are transactional** — follow-on entries commit only when
+   the run that enqueued them **completes**; a refused run schedules nothing.
+   (b) A **per-owner drain quota** (`queueDepthPerOwner × 4` executions per
+   drain cycle) bounds how much execution one owner's chain can buy; entries
+   beyond it are typed `QUEUE_BUDGET_EXCEEDED` refusals. Termination is again
+   arithmetic: per owner, ≤ quota executions × ≤ ceiling enqueues each.
+
+5. **The seam grew three world calls and one outcome field.** `WorldAPI` adds
+   `name`, `location`, `visibleObjects` — `obj.name`/`obj.location`/GM-R12
+   partial-name resolution are world questions, and the split keeps the
+   *matching work* in-engine (fuel-charged per candidate) while the world
+   supplies only visibility. `RunOutcome` adds optional `detail` for
+   diagnostics. No new capability: all three return strings/ids under the
+   world's own permission model.
+
+6. **The frozen table is enforced, not asserted.** `Object.freeze` on a `Map`
+   does not disable `.set`; the library table's mutators are replaced with
+   throwing stubs before the freeze.
+
+7. **Iteration binding:** `ctl.iter`, `list.map`, `list.filter` bind the
+   current element as `%0` inside the per-element frame (library contract
+   updated). `ctl.switch` results are lazy like `ctl.if` branches; patterns
+   evaluate in order until one matches.
+
+8. **GM-R12 dispatch status:** the wildcard matcher (captures,
+   case-insensitive, every match unit fuel-charged — fixture 21) and name
+   resolution (`me`/`here`/`#dbref`/partial) are built and library-exposed
+   (`ctl.switch`, `obj.resolve`). The `$`-command scan over in-scope objects
+   arrives with the world model (04), which owns attribute enumeration; the
+   player-visible surface stays GM-R22 capture data as designed.

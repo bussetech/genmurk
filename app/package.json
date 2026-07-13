@@ -8,8 +8,11 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "tripwire": "node test/tripwire.ts",
+    "unit": "node --test 'test/unit/*.test.ts' 'test/property/*.test.ts'",
     "proof": "node test/harness/harness.ts",
-    "test": "npm run typecheck && npm run proof"
+    "bench": "node test/bench.ts",
+    "test": "npm run typecheck && npm run tripwire && npm run unit && npm run proof"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
