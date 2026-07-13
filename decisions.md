@@ -22,6 +22,39 @@ relationally, with row-level security aligned to the capability model (GM-R15).
 The reference's bespoke flat-file format is not preserved; its *semantics* are.
 *(Studio decision of record: ADR-0048.)*
 
+### The world model: one object table, semantics not format
+The relational world model (GM-R5..R10) is built and proven
+(GENMURK-EPIC1-04; design of record: `app/docs/world-model.md`). The calls
+made, including where GM-R5..R10 were silent:
+
+- **One `objects` table with a type discriminator**, not four — objects are
+  homogeneous (one dbref space, one attribute mechanism, one ownership rule,
+  one lock mechanism; movement treats things and players identically).
+  Type-specific shape is enforced by CHECK constraints keyed on `type`.
+- **`#dbref` identity is allocated once and never reused**, even across
+  soft-destruction/recovery (the reference recycled freed dbrefs; the studio
+  numbers-are-not-reused law wins). Limbo `#0`, God `#1`.
+- **Attributes are a typed table**, not a JSON blob (individually addressable,
+  with a per-attribute `visual` read gate and a `no_inherit` flag). Names are
+  case-insensitive, canonical uppercase.
+- **Locks are stored as data**; the world-API evaluates a bounded boolean
+  grammar (`#dbref` keys, `ATTR:glob`, `!`/`&`/`|`/parens, `true`/`false`);
+  malformed locks fail closed. Lock *gating* is a world-API responsibility
+  (the engine evaluates locks); the DB `world_move` holds the structural and
+  capability invariants.
+- **Inheritance** resolves own-attribute-wins, then the nearest ancestor that
+  has it; a `no_inherit` ancestor attribute does not pass down.
+- **All mutation is via audited `SECURITY DEFINER` RPCs**; no table carries a
+  write policy below the service role. RLS is deny-by-default and a denied
+  read is zero rows, never an error — proven by the isolation suite (every
+  tier, exact counts).
+- **Attribute reads are gated**: a non-visual attribute is invisible to a
+  co-located non-owner (owner + wizard/god only).
+- **The engine's synchronous `WorldAPI` is served over a loaded snapshot**;
+  writes buffer as `RunOutcome.mutations` and commit through the RPCs after
+  the run — this is what lets a Postgres-backed world satisfy the synchronous
+  capability seam.
+
 ### Workers-class compute for PROD
 The application runs on a **Workers-class runtime** (Cloudflare Workers) — the
 studio's provider family for hosted apps — **not** on GitHub Pages. Pages hosts
