@@ -2,7 +2,7 @@
 layout: page
 title: Decomposition & requirements
 eyebrow: The build
-description: "The four subsystems of a MUD/MUSE and the twenty behavioral requirements (GM-R1..R20) GenMURK's clean-room rebuild must satisfy — a behavioral spec extracted from the reference, not code to port."
+description: "The four subsystems of a MUD/MUSE and the behavioral requirements (GM-R1..R22) GenMURK's clean-room rebuild must satisfy — a behavioral spec extracted from the reference, not code to port."
 permalink: /decomposition/
 ---
 
@@ -128,4 +128,5 @@ adopts the current pattern). These are *what*, not *how*.
 
 The requirements above feed the ranked [rebuild backlog](/backlog/); the
 architecture direction and the still-open questions are on the
-[decisions](/decisions/) page. PROD is EPIC5 work.
+[decisions](/decisions/) page. GENMURK-EPIC1 executes the backlog; PROD is
+platform EPIC5 work.

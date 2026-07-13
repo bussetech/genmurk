@@ -1,13 +1,19 @@
 > **Update (2026-07-10, EPIC4-08).** The `genmurk` repo is now **founded** (`bussetech/genmurk`, via console) and this build-in-public docs site is seeded here. The registry entry is live (`archetype: saas`, entered brownfield; PROD apex `genmurk.com` recorded in ADR-0049). References below to content being "staged in platform" or founding being "sysop-gated" describe the pre-founding state and are superseded by this repo. The knoll is still wired at first-gnome (EPIC5); PROD stands up EPIC5.
 
+> **Update (2026-07-12, GENMURK-EPIC1-01).** The execution epic split into two
+> tracks: the **v1 build** (gnomes, knoll wiring, engine work) is
+> **GENMURK-EPIC1**, the project track; the **PROD standup** stays **platform
+> EPIC5** (the STEERCO split-track record of 2026-07-12, control plane). Read
+> "EPIC5" below accordingly; record bodies are preserved as written.
+
 # GenMURK — the TinyMUSE clean-room rebuild (c-build 2)
 
 The studio's decompose-and-rebuild of a living system that can't run on modern
 architecture. **Clean rebuild**, worked from decomposed requirements — the
 original **TinyMUSE** engine (and the early-1990s MIT **MicroMUSE** instance) are a
 **historical behavioral reference**, never adopted, never ported, never the
-product's identity. Ruling of record:
-`docs/steerco/2026-07-10-brownfield-decompose-rebuild.md`.
+product's identity. Ruling of record: the STEERCO brownfield
+decompose-and-rebuild ruling of 2026-07-10 (control plane).
 
 ## Contents
 
