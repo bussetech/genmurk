@@ -1,0 +1,30 @@
+{
+  "name": "21-match-backtrack-bomb",
+  "attackClass": "cpu-step-exhaustion",
+  "description": "Wildcard-match backtracking blowup: a 20,000-char input against a many-star pattern that can never match. An unmetered matcher would burn unbounded CPU here (the ReDoS shape); GenMURK charges every match unit as fuel, so the step budget refuses the run long before the host feels it — found while building the GM-R12 matcher, which is why match units charge fuel.",
+  "budget": {
+    "steps": 10000,
+    "recursionDepth": 32,
+    "enqueuePerRun": 8,
+    "queueDepthPerOwner": 16,
+    "allocationBytes": 1048576,
+    "wallClockMs": 2000
+  },
+  "runs": [
+    {
+      "actor": "#1",
+      "program": "ctl.switch(str.repeat(\"a\", 20000), \"*a*a*a*a*a*a*a*a*a*a*b\", \"matched\", \"fallback\")"
+    }
+  ],
+  "expect": [
+    {
+      "statusAnyOf": [
+        "refused"
+      ],
+      "refusalCodesAnyOf": [
+        "STEP_BUDGET_EXCEEDED"
+      ],
+      "mutations": []
+    }
+  ]
+}
