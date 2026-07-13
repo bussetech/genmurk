@@ -11,10 +11,15 @@
     "tripwire": "node test/tripwire.ts",
     "unit": "node --test 'test/unit/*.test.ts' 'test/property/*.test.ts'",
     "proof": "node test/harness/harness.ts",
+    "proof:realworld": "GENMURK_REAL_WORLD=1 node test/harness/harness.ts",
     "bench": "node test/bench.ts",
-    "test": "npm run typecheck && npm run tripwire && npm run unit && npm run proof"
+    "test": "npm run typecheck && npm run tripwire && npm run unit && npm run proof && npm run proof:realworld",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "test:isolation": "node --test test/world/isolation.test.ts"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.45.0",
     "@types/node": "^22.20.1",
     "typescript": "5.7.3"
   }

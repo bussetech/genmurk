@@ -20,7 +20,7 @@ interface WorldObject {
   attrs: Map<string, string>;
 }
 
-const DEFAULT_SEED: WorldSeed = {
+export const DEFAULT_SEED: WorldSeed = {
   objects: {
     "#1": { owner: "#1", attrs: {} },
     "#2": { owner: "#2", attrs: {} },
