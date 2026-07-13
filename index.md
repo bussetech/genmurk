@@ -25,17 +25,19 @@ there's [a note for you on the museum page](/museum/).
 This is the build log, published as it happens. Where things stand today:
 
 - **Decomposition is done.** The reference behavior is decomposed into four
-  subsystems and twenty behavioral requirements (GM-R1..R20).
+  subsystems and the behavioral requirements of record (GM-R1..R22).
 - **The rebuild backlog is set,** ranked highest-risk-first — the sandboxed
   softcode runtime leads.
 - **Architecture direction is recorded,** with one decision honestly still
   open (how the softcode sandbox is built).
-- **PROD is EPIC5.** No application ships from here.
+- **The v1 build is GENMURK-EPIC1** — the project track, now open, building
+  to the ruled scope cut, proven locally and at dev-tier.
+- **PROD is platform EPIC5.** No application ships from here.
 
 Read on:
 
 - **[Decomposition & requirements](/decomposition/)** — the four subsystems and
-  the behavioral spec (GM-R1..R20) extracted from the reference.
+  the behavioral spec (GM-R1..R22) extracted from the reference.
 - **[Rebuild backlog](/backlog/)** — what's next, ranked; the softcode-sandbox
   spike first.
 - **[Decisions](/decisions/)** — the architecture decision log in public,
@@ -50,8 +52,8 @@ This site is **documentation, not PROD.** It is the *story* of the build.
   studio subdomain: static, public, and **secrets-free by construction**.
   There is no runtime, no login, no data here to leak.
 - **The running GenMURK app** lives separately at **`genmurk.com`** — a
-  Workers-class runtime with a Supabase database, standing up in **EPIC5**.
-  The app is never deployed to these Pages.
+  Workers-class runtime with a Supabase database, standing up in **platform
+  EPIC5**. The app is never deployed to these Pages.
 
 GenMURK is built by a one-person software studio: one human plus a governed
 workforce of small, single-task agents ("gnomes"), every change arriving as a

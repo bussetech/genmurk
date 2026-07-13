@@ -1,5 +1,16 @@
 > **Update (2026-07-10, EPIC4-08).** The `genmurk` repo is now **founded** (`bussetech/genmurk`, via console) and this build-in-public docs site is seeded here. The registry entry is live (`archetype: saas`, entered brownfield; PROD apex `genmurk.com` recorded in ADR-0049). References below to content being "staged in platform" or founding being "sysop-gated" describe the pre-founding state and are superseded by this repo. The knoll is still wired at first-gnome (EPIC5); PROD stands up EPIC5.
 
+> **Update (2026-07-12, GENMURK-EPIC1-01).** The execution epic split into two
+> tracks (STEERCO split-track record, platform
+> `docs/steerco/2026-07-12-split-track-epics-and-genmurk-intent.md`). Where
+> this record says "EPIC5," read: the **v1 build** — including first project
+> gnomes, knoll wiring, and the softcode-sandbox ADR + spike (§"What EPIC5
+> executes" items 2–3) — is **GENMURK-EPIC1**, the project track; the **PROD
+> standup** (apex zone, multi-zone steward, hosted exposure — items 4 and the
+> apex acts below) stays **platform EPIC5**, reached only through the
+> dependency register. This note re-points; the record body is preserved as
+> written.
+
 # GenMURK — founding record
 
 > **Status:** founding record of EPIC4-08 (2026-07-10). The clean-room rebuild of

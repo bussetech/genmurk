@@ -187,7 +187,8 @@ EPIC4-07 SaaS-stratum patterns:
 - **Museum (GM-R20):** the original C tree may be preserved read-only as a
   behavioral-reference exhibit; it is never adopted as product nor built in CI.
 
-The **PROD app is EPIC5 work**; 08 records the plan and reserves the surfaces.
+The **app build is GENMURK-EPIC1 work; the PROD standup is platform EPIC5
+work**; 08 recorded the plan and reserved the surfaces.
 
 ## 4. Two surfaces, two homes (do not conflate)
 
@@ -196,12 +197,13 @@ The **PROD app is EPIC5 work**; 08 records the plan and reserves the surfaces.
   like kdc/menowise/backpacks. Static, public, secrets-free (`docs/build-in-public.md`,
   ADR-0047). Documentation, not PROD. Instance 1 of the build-in-public pattern.
 - **PROD MURK app → `genmurk.com`** (registered apex, sysop-owned) — the running
-  product on its own TLD, Workers-class + Supabase. Stands up in **EPIC5**. 08
+  product on its own TLD, Workers-class + Supabase. Stands up in **platform
+  EPIC5**. 08
   reserves it in the registry and flags the DNS-zone decision (a project may own
   its apex PROD domain — a second Cloudflare zone under the DNS steward; small
   ADR).
 
-## 5. Rebuild backlog (EPIC5+, ranked)
+## 5. Rebuild backlog (GENMURK-EPIC1+, ranked)
 
 1. **[arch] Build our own softcode engine — ADR + spike (GM-R14/R11)** — the
    highest-risk, highest-value work; nothing hosted ships before it. Mechanism is

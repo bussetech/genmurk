@@ -2,14 +2,15 @@
 layout: page
 title: Rebuild backlog
 eyebrow: The build
-description: "What GenMURK builds next, ranked highest-risk-first — the sandboxed softcode runtime leads. Honest 'what's next' narrative; the running app is EPIC5 work."
+description: "What GenMURK builds next, ranked highest-risk-first — the sandboxed softcode runtime leads. Honest 'what's next' narrative; GENMURK-EPIC1 executes the build, and PROD hosting is platform EPIC5 work."
 permalink: /backlog/
 ---
 
 This is the honest **what's next**: the rebuild backlog, ranked. It is a plan,
 not a status board — no operational green/red here. The [requirements](/decomposition/)
-say *what* GenMURK must do; this ranks the order the work happens in. **EPIC5
-executes it.**
+say *what* GenMURK must do; this ranks the order the work happens in.
+**GENMURK-EPIC1 — the project track — executes it;** PROD hosting stays
+platform EPIC5 work.
 
 ## Highest-risk-first
 
@@ -68,6 +69,6 @@ is settled before anything is exposed.
 
 This is a build log, not an ops dashboard. You will not find heartbeat,
 uptime, incident, or pass/fail chips here — the running app and its operational
-signals live at `genmurk.com` (EPIC5), on the client portal, not on these public
-Pages. Progress here is narrative: **decomposition done; rebuild backlog set;
-PROD is EPIC5.**
+signals live at `genmurk.com` (platform EPIC5), on the client portal, not on
+these public Pages. Progress here is narrative: **decomposition done; rebuild
+backlog set; GENMURK-EPIC1 builds; PROD is platform EPIC5.**
