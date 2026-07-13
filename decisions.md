@@ -61,9 +61,9 @@ would. Owning the engine end to end is what makes that possible; a borrowed VM
 would not.
 
 ### The app lives in this repo, under `app/`
-The GenMURK application code is built **in this repo**, under `app/` —
-eaap-shaped (`wrangler.toml`, `supabase/`, `src/`, `test/`, per the studio's
-SaaS-stratum patterns) — with CI split into separate **site** and **app** jobs
+The GenMURK application code is built **in this repo**, under `app/` — the
+studio's standard SaaS-stratum app layout (`wrangler.toml`, `supabase/`,
+`src/`, `test/`; ADR-0048) — with CI split into separate **site** and **app** jobs
 and the Jekyll build excluding `app/` entirely. One repo keeps one occupancy
 and provenance surface for the parallel-track build; the two-surfaces law is
 about *deploy targets*, and it is unchanged — the app never deploys to these
