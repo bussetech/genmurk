@@ -1,0 +1,146 @@
+# GM-R22 — the player-facing command surface, AS DATA.
+#
+# GM-R22 (STEERCO minimum bar): GenMURK supports at minimum the same end-user
+# command set — verb names and invocation syntax — as the TinyMUSE/MicroMUSE
+# reference, so historic users onboard with minimal relearning. The canonical
+# reference command list is an AIRGAPPED PRESERVATION CAPTURE (genmurk#9), not
+# yet landed. When it lands it DROPS IN AS THIS DATA: each reference command
+# becomes one `commands:` entry, `capture.landed` flips to true, and the
+# conformance runner (gm-r22/conformance.ts) measures real coverage.
+#
+# UNTIL THEN every entry below is `provisional: true` and its `reference_tag`
+# is a GM-Rn requirement of record — NOT a command remembered from the wider
+# MUSH family. That is the clean-room/provenance line: the runner REJECTS any
+# entry whose name traces to neither the capture nor a GM-Rn requirement.
+#
+# `behavior` is the class the command must dispatch to (verbs.ts BehaviorClass);
+# the runner drives `example` through the REAL parser and asserts the resulting
+# verb resolves to this class. `implemented: true` means the surface is wired in
+# this build (a parse/route failure on it is a regression, not a coverage gap);
+# a future capture entry we have not built yet is `implemented: false` and
+# reports as an honest coverage GAP, never a pass.
+
+capture:
+  landed: false
+  issue: genmurk#9
+  note: "canonical TinyMUSE/MicroMUSE command capture is an airgapped preservation task, not yet landed; coverage below is PROVISIONAL against GM-Rn only"
+
+commands:
+  # --- presence & speech (GM-R2 / GM-R3) ---
+  - verb: say
+    syntax: "say <message>"
+    example: "say hello everyone"
+    behavior: speech
+    reference_tag: GM-R2
+    provisional: true
+    implemented: true
+  - verb: emote
+    syntax: "emote <action>"
+    example: "emote waves a hand"
+    behavior: speech
+    reference_tag: GM-R2
+    provisional: true
+    implemented: true
+  - verb: page
+    syntax: "page <player> <message>"
+    example: "page Bob are you there"
+    behavior: directed
+    reference_tag: GM-R3
+    provisional: true
+    implemented: true
+  - verb: whisper
+    syntax: "whisper <player> <message>"
+    example: "whisper Bob psst over here"
+    behavior: directed
+    reference_tag: GM-R3
+    provisional: true
+    implemented: true
+  - verb: announce
+    syntax: "announce <message>"
+    example: "announce the server reboots at noon"
+    behavior: broadcast
+    reference_tag: GM-R3
+    provisional: true
+    implemented: true
+
+  # --- movement (GM-R6) + observing (GM-R1/R6) ---
+  - verb: go
+    syntax: "go <exit>"
+    example: "go north"
+    behavior: movement
+    reference_tag: GM-R6
+    provisional: true
+    implemented: true
+  - verb: enter
+    syntax: "enter <thing>"
+    example: "enter cabinet"
+    behavior: movement
+    reference_tag: GM-R6
+    provisional: true
+    implemented: true
+  - verb: leave
+    syntax: "leave"
+    example: "leave"
+    behavior: movement
+    reference_tag: GM-R6
+    provisional: true
+    implemented: true
+  - verb: look
+    syntax: "look"
+    example: "look"
+    behavior: look
+    reference_tag: GM-R1
+    provisional: true
+    implemented: true
+
+  # --- building (GM-R7) + locks (GM-R8) ---
+  - verb: dig
+    syntax: "dig <RoomName>"
+    example: "dig The Kitchen"
+    behavior: build
+    reference_tag: GM-R7
+    provisional: true
+    implemented: true
+  - verb: open
+    syntax: "open <exit> = <destination>"
+    example: "open north = The Kitchen"
+    behavior: build
+    reference_tag: GM-R7
+    provisional: true
+    implemented: true
+  - verb: create
+    syntax: "create <ThingName>"
+    example: "create a brass lantern"
+    behavior: build
+    reference_tag: GM-R7
+    provisional: true
+    implemented: true
+  - verb: set
+    syntax: "set <target> = <ATTR>:<value>"
+    example: "set lantern = mood:warmly glowing"
+    behavior: build
+    reference_tag: GM-R7
+    provisional: true
+    implemented: true
+  - verb: name
+    syntax: "name <target> = <NewName>"
+    example: "name lantern = brass lamp"
+    behavior: build
+    reference_tag: GM-R7
+    provisional: true
+    implemented: true
+  - verb: describe
+    syntax: "describe <target> = <text>"
+    example: "describe here = A warm and cluttered kitchen"
+    behavior: build
+    reference_tag: GM-R7
+    provisional: true
+    implemented: true
+  - verb: lock
+    syntax: "lock <enter|use|pickup> <target> = <expr>"
+    example: "lock use north = #1"
+    behavior: build
+    reference_tag: GM-R7
+    provisional: true
+    implemented: true
+    divergence: "the lock EXPRESSION grammar is a bounded safe subset (GM-R14); richer reference key forms are rejected outright, never approximated (safe behavior wins, documented for the returning user)"
