@@ -201,6 +201,54 @@ enumerated in this repo yet. Where a reference command would conflict with the
 sandbox requirement (GM-R14), the safe behavior wins and the divergence is
 documented for the returning user.
 
+### Command dispatch: built-ins are budget-free, softcode is the metered path
+The command dispatcher (`app/src/server/dispatch.ts`) routes a typed line to
+one of two worlds. **Built-in verbs** — dig/open/create/set/name/describe/lock,
+go/enter/leave/look, say/emote/page/whisper/announce — are **ordinary code and
+carry no fuel budget**: they are fixed verbs the server implements, not
+untrusted input. **Only softcode is fuel-metered** (GM-R14): a `$`-command
+(prompt 07) matches in the same dispatcher and hands its program to the
+sandboxed engine, whose output reaches the transport only through the
+world-API-mediated door. The dispatcher never imports the engine and never
+holds fuel — the metered/unmetered split is visible in the module graph.
+Building/movement verbs reach the world of record ONLY through the audited
+`world_*` RPCs, called as the actor, so RLS + role checks stay the final wall.
+*(GENMURK-EPIC1-06; design of record `app/docs/command-dispatch.md`.)*
+
+### Name matching is neighborhood-scoped (GM-R12)
+A typed target resolves against the actor's loaded snapshot — self, room,
+room contents, inventory, and **everything the actor owns** — using 04's
+`resolveName` (`me`/`here`/`#dbref`/exact-beats-substring). You can therefore
+name your freshly-dug rooms from anywhere (you own them), but a room you
+neither occupy nor own is not name-resolvable; linking to arbitrary distant
+rooms by dbref is a documented later step. **Where the requirement was silent:**
+partial match is substring (not prefix), an exit's `use` lock gates its
+traversal, and building-verb targets use full `resolveName` while movement uses
+prefix matching over the room's exits. *(GENMURK-EPIC1-06.)*
+
+### Building permission: exits are wired by whoever controls the source room
+`world_open` requires **control of the source room** (GM-R15). So a plain
+builder builds in rooms they dig and own; **wiring an exit from a shared room
+they do not own is a wizard act** in v1 (the seed itself has God build Town and
+Cave). The reference's room build-permission flags (`JUMP_OK`/`LINK_OK`/`ABODE`
+class) that let a room owner delegate building are a documented later step, not
+invented from model memory. GM-R7's `name` (rename) gained its audited RPC here
+(`world_rename`), the one building verb 04 had not shipped.
+*(GENMURK-EPIC1-06.)*
+
+### GM-R22 compatibility is data-driven, and provisional until the capture lands
+Command-set compatibility is measured by a **conformance harness**
+(`app/gm-r22/`): the player-facing surface is DATA (`command-surface.yml`), a
+runner drives each entry's syntax through the real parser and asserts its
+behavior class, and coverage/gaps/divergences are reported with the airgapped
+**capture (genmurk#9) status shown loudly**. Until the capture lands every
+entry is provisional and its provenance MUST be a GM-Rn requirement of record —
+the runner rejects any name traceable to neither the capture nor a requirement
+(the clean-room line, enforced in CI). Divergences where the sandbox forces a
+difference (GM-R14 wins) are recorded on the entry and rendered for returning
+users at `/compatibility/`. *(GENMURK-EPIC1-06; harness README
+`app/gm-r22/README.md`.)*
+
 ## Open
 
 ### Themed creative direction
