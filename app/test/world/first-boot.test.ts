@@ -14,7 +14,14 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { provisionFirstBoot, generateSecret } from "../../src/server/auth.ts";
+import {
+  provisionFirstBoot,
+  generateSecret,
+  registerOpen,
+  getRegistrationMode,
+  RegistrationRefused,
+  type FirstBootResult,
+} from "../../src/server/auth.ts";
 import { SupabaseGateway } from "../../src/server/supabase-gateway.ts";
 import { signIn, type StackConfig } from "./auth-helpers.ts";
 
@@ -26,6 +33,9 @@ const GOD_EMAIL = "god@genmurk.invalid";
 
 // a provider-stored secret for THIS run (generated, never a repo literal)
 const GOD_SECRET = generateSecret();
+
+// captured from the provision test, used by the registration-default test
+let boot: FirstBootResult;
 
 function service(): SupabaseClient {
   return createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -58,10 +68,10 @@ test("a fresh world ships NO god credential — God #1 starts unbound", async ()
 });
 
 test("first-boot provisions god with the provider-stored secret and binds it", async () => {
-  const result = await provisionFirstBoot(cfg, { email: GOD_EMAIL, secret: GOD_SECRET });
-  assert.equal(result.provisioned, true, "fresh provisioning happened");
-  assert.equal(result.godDbref, 1);
-  assert.equal(result.generatedSecret, undefined, "used the supplied provider secret, did not generate one");
+  boot = await provisionFirstBoot(cfg, { email: GOD_EMAIL, secret: GOD_SECRET });
+  assert.equal(boot.provisioned, true, "fresh provisioning happened");
+  assert.equal(boot.godDbref, 1);
+  assert.equal(boot.generatedSecret, undefined, "used the supplied provider secret, did not generate one");
 
   const svc = service();
   const { data: god } = await svc
@@ -69,7 +79,28 @@ test("first-boot provisions god with the provider-stored secret and binds it", a
     .select("auth_user_id")
     .eq("dbref", 1)
     .single();
-  assert.equal(god!.auth_user_id, result.authUserId, "God #1 is now bound to the provisioned principal");
+  assert.equal(god!.auth_user_id, boot.authUserId, "God #1 is now bound to the provisioned principal");
+});
+
+test("a fresh boot defaults the instance to passphrase-gated registration", async () => {
+  // the boot generated an instance passphrase (none was supplied) and set the mode
+  assert.equal(boot.registrationMode, "passphrase", "out-of-the-box mode is passphrase");
+  assert.ok(boot.generatedRegistrationPassphrase, "a passphrase was generated to emit once");
+  assert.equal((await getRegistrationMode(cfg)).mode, "passphrase", "the instance reports passphrase mode");
+
+  // registration now requires that passphrase — wrong/none refused, right admits
+  await assert.rejects(
+    () => registerOpen(cfg, { name: "NoPass", email: "nopass@genmurk.invalid", secret: generateSecret() }),
+    RegistrationRefused,
+    "no passphrase is refused on a freshly booted instance",
+  );
+  const r = await registerOpen(cfg, {
+    name: "WithPass",
+    email: "withpass@genmurk.invalid",
+    secret: generateSecret(),
+    passphrase: boot.generatedRegistrationPassphrase!,
+  });
+  assert.ok(r.dbref > 1, "the boot's passphrase admits a registration");
 });
 
 test("god can log in with the provisioned secret — and the session carries god power", async () => {

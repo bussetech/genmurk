@@ -22,6 +22,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 export interface AdminConfig {
   url: string;
   serviceRoleKey: string;
+  /** the anon key — needed only for first-boot's god sign-in when it sets the
+   *  default registration policy (below); other admin ops use the service key. */
+  anonKey?: string;
 }
 
 /** A cryptographically random secret for a provisioned account, when the
@@ -78,6 +81,13 @@ export interface FirstBootResult {
   /** the secret to emit ONCE and store in the provider store — present ONLY
    *  when this call generated it (no `secret` was supplied). Never persisted. */
   generatedSecret?: string;
+  /** the registration mode this boot established (default `passphrase` on a
+   *  fresh provision; absent when nothing was set — e.g. no anon key, or a
+   *  re-run no-op). */
+  registrationMode?: "closed" | "open" | "passphrase";
+  /** the registration passphrase to emit ONCE — present ONLY when this call
+   *  generated it (no `registrationPassphrase` was supplied). Never persisted. */
+  generatedRegistrationPassphrase?: string;
 }
 
 export interface FirstBootOptions {
@@ -87,6 +97,11 @@ export interface FirstBootOptions {
    *  omitted, a random one is generated and returned for the operator to
    *  store — first boot NEVER falls back to a fixed default (GM-R18). */
   secret?: string;
+  /** the out-of-the-box instance registration passphrase
+   *  (GENMURK_REGISTRATION_PASSPHRASE). A fresh boot defaults the instance to
+   *  `passphrase` mode; when this is omitted a random passphrase is generated
+   *  and returned to emit once. Requires `cfg.anonKey` (the god sign-in). */
+  registrationPassphrase?: string;
 }
 
 /**
@@ -135,12 +150,44 @@ export async function provisionFirstBoot(
   });
   if (bindErr) throw new Error(`world_bind_auth (god): ${bindErr.message}`);
 
+  // Out-of-the-box posture: a freshly provisioned instance defaults to
+  // `passphrase`-gated open registration (decisions.md). Setting the policy is
+  // a god act, so sign in as the god we just minted and call the god-only RPC;
+  // the passphrase comes from the provider store or is generated + emitted
+  // once, exactly like the god secret. Skipped only if no anon key is on hand.
+  let registrationMode: FirstBootResult["registrationMode"];
+  let generatedRegistrationPassphrase: string | undefined;
+  if (cfg.anonKey) {
+    generatedRegistrationPassphrase = opts.registrationPassphrase ? undefined : generateSecret();
+    const passphrase = opts.registrationPassphrase ?? generatedRegistrationPassphrase!;
+    const anon = createClient(cfg.url, cfg.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: sess, error: siErr } = await anon.auth.signInWithPassword({
+      email: opts.email,
+      password: secret,
+    });
+    if (siErr || !sess.session) throw new Error(`god sign-in (set registration): ${siErr?.message}`);
+    const godClient = createClient(cfg.url, cfg.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${sess.session.access_token}` } },
+    });
+    const { error: regErr } = await godClient.rpc("world_set_registration", {
+      p_mode: "passphrase",
+      p_passphrase: passphrase,
+    });
+    if (regErr) throw new Error(`set default registration: ${regErr.message}`);
+    registrationMode = "passphrase";
+  }
+
   return {
     provisioned: true,
     godDbref: 1,
     godEmail: opts.email,
     authUserId: authUser.id,
     ...(generated ? { generatedSecret: generated } : {}),
+    ...(registrationMode ? { registrationMode } : {}),
+    ...(generatedRegistrationPassphrase ? { generatedRegistrationPassphrase } : {}),
   };
 }
 

@@ -332,12 +332,18 @@ the one instance-wide passphrase). The passphrase is lightweight anti-spam
 gatekeeping — a single shared secret per instance, stored **bcrypt-hashed**
 (pgcrypto, the GM-R18 KDF class), never plaintext, never in the repo, checked
 server-side **before any account is minted** (a wrong passphrase creates
-nothing). The safe default is **closed**; opening the instance is an explicit
-god act. A self-registered player is always **base tier** in Limbo #0 — one
+nothing). A self-registered player is always **base tier** in Limbo #0 — one
 player per account, no duplicate names — so registration never confers power.
-Heavier abuse controls (email verification, rate limiting, captcha) remain an
-ops-tail concern for hosted exposure (dependency register); the passphrase is
-the v1 gate. *(GENMURK-EPIC1-08.)*
+A freshly provisioned instance **defaults to `passphrase` mode**: first-boot
+sets it and emits the instance passphrase once (from
+`GENMURK_REGISTRATION_PASSPHRASE` or generated), alongside the god secret — so
+an instance comes up gated, neither wide open nor accidentally closed, and the
+operator flips to `open`/`closed` with one `set-registration` command. (The
+bare, un-provisioned DB row still reads `closed`; passphrase mode only means
+something once a passphrase exists, which first-boot establishes.) Heavier abuse
+controls (email verification, rate limiting, captcha) remain an ops-tail concern
+for hosted exposure (dependency register); the passphrase is the v1 gate.
+*(GENMURK-EPIC1-08.)*
 
 ### Softcode capability attribution: the object and its owner, never the enactor
 Resolving the offline-owner question 07 left to 08: a world-attached program's
