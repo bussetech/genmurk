@@ -83,7 +83,13 @@ export interface ErrorMessage {
     | "NO_SUCH_EXIT"
     | "NO_SUCH_PLAYER"
     | "PERMISSION_DENIED"
-    | "MOVE_REFUSED";
+    | "MOVE_REFUSED"
+    // building/movement command layer (GENMURK-EPIC1-06)
+    | "LOCKED"
+    | "NO_SUCH_TARGET"
+    | "AMBIGUOUS_TARGET"
+    | "NO_SUCH_ROOM"
+    | "BUILD_FAILED";
   text: string;
 }
 

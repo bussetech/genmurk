@@ -58,6 +58,8 @@ studio:
       url: /backlog/
     - title: Decisions
       url: /decisions/
+    - title: Compatibility
+      url: /compatibility/
     - title: Museum
       url: /museum/
     - title: Source

@@ -9,16 +9,18 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "tripwire": "node test/tripwire.ts",
-    "unit": "node --test 'test/unit/*.test.ts' 'test/property/*.test.ts' 'test/server/*.test.ts'",
+    "unit": "node --test 'test/unit/*.test.ts' 'test/property/*.test.ts' 'test/server/*.test.ts' 'test/gm-r22/*.test.ts'",
     "server": "node src/server/server.ts",
     "client": "node src/server/client.ts",
     "proof": "node test/harness/harness.ts",
     "proof:realworld": "GENMURK_REAL_WORLD=1 node test/harness/harness.ts",
+    "conformance": "node gm-r22/conformance.ts",
     "bench": "node test/bench.ts",
-    "test": "npm run typecheck && npm run tripwire && npm run unit && npm run proof && npm run proof:realworld",
+    "test": "npm run typecheck && npm run tripwire && npm run unit && npm run conformance && npm run proof && npm run proof:realworld",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
-    "test:isolation": "node --test test/world/isolation.test.ts"
+    "test:isolation": "node --test test/world/isolation.test.ts",
+    "test:building": "node --test test/world/building.test.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
