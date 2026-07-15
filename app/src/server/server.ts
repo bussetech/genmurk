@@ -20,7 +20,7 @@ import type { PendingEmit } from "../world/world-api.ts";
 import { RoomCoordinator } from "./coordinator.ts";
 import type { WorldGateway } from "./gateway.ts";
 import { parseClientMessage, type ServerMessage } from "./protocol.ts";
-import { parseCommand } from "./verbs.ts";
+import { dispatch } from "./dispatch.ts";
 import { SupabaseGateway } from "./supabase-gateway.ts";
 
 export interface ServerHandle {
@@ -107,61 +107,14 @@ export async function startServer(
         return;
       }
 
-      const cmd = parseCommand(msg.line);
-      switch (cmd.verb) {
-        case "empty":
-          return;
-        case "say":
-        case "emote":
-          coordinator.speak(sessionId, cmd.verb, cmd.text);
-          return;
-        case "page":
-        case "whisper": {
-          const delivered = coordinator.direct(sessionId, cmd.verb, cmd.target, cmd.text);
-          if (!delivered) {
-            send({ type: "error", code: "NO_SUCH_PLAYER", text: `${cmd.target} is not connected` });
-          } else {
-            send({ type: "info", text: `(${cmd.verb} to ${cmd.target}) ${cmd.text}` });
-          }
-          return;
-        }
-        case "announce": {
-          if (coordinator.announce(sessionId, cmd.text) === "denied") {
-            send({ type: "error", code: "PERMISSION_DENIED", text: "announce is a privileged act" });
-          }
-          return;
-        }
-        case "go": {
-          const s = coordinator.session(sessionId);
-          if (!s) return;
-          const moved = await gateway.move(s.playerId, cmd.exit);
-          if (!moved.ok) {
-            send({ type: "error", code: moved.code, text: moved.reason });
-            return;
-          }
-          coordinator.moveSession(sessionId, moved.roomId, moved.roomName);
-          send({
-            type: "info",
-            text: `${moved.roomName} — here: ${coordinator.occupants(moved.roomId).join(", ")}`,
-          });
-          return;
-        }
-        case "look": {
-          const s = coordinator.session(sessionId);
-          if (!s) return;
-          send({
-            type: "info",
-            text: `${s.roomName} — here: ${coordinator.occupants(s.roomId).join(", ")}`,
-          });
-          return;
-        }
-        case "quit":
-          socket.close();
-          return;
-        case "unknown":
-          send({ type: "error", code: "UNKNOWN_COMMAND", text: `unknown command: ${cmd.input}` });
-          return;
-      }
+      // The command dispatch pipeline (dispatch.ts) owns verb routing; the
+      // server owns the connection, the auth handshake, and per-session
+      // ordering. Built-ins run here as ordinary code; softcode (07) is the
+      // only fuel-metered path (see dispatch.ts § THE BUDGET BOUNDARY).
+      await dispatch(
+        { coordinator, gateway, sessionId, send, disconnect: () => socket.close() },
+        msg.line,
+      );
     };
 
     socket.on("message", (data: unknown) => {
