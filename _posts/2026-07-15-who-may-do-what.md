@@ -68,8 +68,11 @@ usually wants. The passphrase is a credential, so it's stored the same way
 passwords are — hashed, never in the clear, never in the repo — and it's
 checked *before* any account is created, so a wrong phrase makes nothing. A
 freshly created player always arrives at the bottom of the ladder, in Limbo,
-owning only itself; registering can never hand you power. The safe default is
-closed, and opening the door is one deliberate command.
+owning only itself; registering can never hand you power. A new instance comes
+up in passphrase mode out of the box — first boot hands you the instance
+passphrase the same way it hands you the god secret, once, to keep — so the
+front door is gated from the very first minute, and switching it wide open or
+bolting it shut is a single command.
 
 ## Still on localhost, still honest
 
