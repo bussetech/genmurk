@@ -7,7 +7,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { startServer, type ServerHandle } from "../../src/server/server.ts";
-import { FixtureGateway } from "../../src/server/gateway.ts";
+import { FixtureGateway, fixturePrincipalToken } from "../../src/server/gateway.ts";
 
 const ESC = "\u001b";
 // eslint-disable-next-line no-control-regex
@@ -91,8 +91,8 @@ async function connect(token: string): Promise<Wire> {
 }
 
 test("legitimate styling crosses the wire as markup tokens — zero escape bytes in the raw frame", async () => {
-  const alice = await connect("stub:Alice");
-  const bob = await connect("stub:Bob");
+  const alice = await connect(fixturePrincipalToken("Alice"));
+  const bob = await connect(fixturePrincipalToken("Bob"));
   try {
     bob.send("glow");
     const raw = await alice.until((r) => r.includes("warm glow"));
@@ -105,8 +105,8 @@ test("legitimate styling crosses the wire as markup tokens — zero escape bytes
 });
 
 test("a raw escape byte in softcode-emitted attribute data is stripped at the boundary", async () => {
-  const alice = await connect("stub:Alice");
-  const bob = await connect("stub:Bob");
+  const alice = await connect(fixturePrincipalToken("Alice"));
+  const bob = await connect(fixturePrincipalToken("Bob"));
   try {
     bob.send("flare");
     const raw = await alice.until((r) => r.includes("flare") && r.includes('"emit"'));
@@ -119,8 +119,8 @@ test("a raw escape byte in softcode-emitted attribute data is stripped at the bo
 });
 
 test("a raw escape byte in a TYPED line is stripped before it reaches any other client", async () => {
-  const alice = await connect("stub:Alice");
-  const bob = await connect("stub:Bob");
+  const alice = await connect(fixturePrincipalToken("Alice"));
+  const bob = await connect(fixturePrincipalToken("Bob"));
   try {
     bob.send(`say watch this ${ESC}[31m trick`);
     const raw = await alice.until((r) => r.includes("watch this"));

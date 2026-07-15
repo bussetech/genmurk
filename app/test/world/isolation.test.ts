@@ -19,11 +19,12 @@ import { createEngine } from "../../src/engine/engine.ts";
 import { createWorldModel } from "../../src/world/world-api.ts";
 import { loadSnapshot, applyMutations } from "../../src/world/snapshot.ts";
 import type { Budget } from "../../src/engine/types.ts";
+import { provisionCast, type StackConfig } from "./auth-helpers.ts";
 
 const url = process.env["SUPABASE_URL"] ?? "http://127.0.0.1:54541";
 const anonKey = process.env["SUPABASE_ANON_KEY"] ?? "";
 const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
-const PASSWORD = "synthetic-password-1234";
+const cfg: StackConfig = { url, anonKey, serviceRoleKey: serviceKey };
 
 // player name -> { email, tier } (the seeded world; see supabase/seed.sql)
 const PLAYERS = [
@@ -37,18 +38,6 @@ const PLAYERS = [
 function service(): SupabaseClient {
   return createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
-
-async function signIn(email: string): Promise<SupabaseClient> {
-  const client = createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data, error } = await client.auth.signInWithPassword({ email, password: PASSWORD });
-  if (error || !data.session) throw new Error(`sign-in failed for ${email}: ${error?.message}`);
-  return createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${data.session.access_token}` } },
   });
 }
 
@@ -68,26 +57,10 @@ const clients: Record<string, SupabaseClient> = {};
 
 before(async () => {
   assert.ok(anonKey && serviceKey, "set SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY (from `supabase start`)");
-  const admin = service();
-  const { data: existing } = await admin.auth.admin.listUsers({ perPage: 200 });
-  for (const p of PLAYERS) {
-    const found = existing?.users.find((u) => u.email === p.email);
-    if (found) await admin.auth.admin.deleteUser(found.id); // ON DELETE SET NULL unlinks the player
-    const { data, error } = await admin.auth.admin.createUser({
-      email: p.email,
-      password: PASSWORD,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser ${p.email}: ${error?.message}`);
-    // link the auth principal to the seeded player object by name
-    const { error: linkErr } = await admin
-      .from("objects")
-      .update({ auth_user_id: data.user.id })
-      .eq("name", p.name)
-      .eq("type", "player");
-    if (linkErr) throw new Error(`link ${p.name}: ${linkErr.message}`);
-    clients[p.name] = await signIn(p.email);
-  }
+  // real accounts, real sign-ins, per-run random secret (auth-helpers.ts) —
+  // the same JWT-scoped clients a real player would drive.
+  const provisioned = await provisionCast(cfg, PLAYERS);
+  for (const p of PLAYERS) clients[p.name] = provisioned[p.name]!.client;
 }, { timeout: 60_000 });
 
 // ---------------------------------------------------------------- anonymous
@@ -168,7 +141,9 @@ test("Merlin (wizard) sees the whole world, including the destroyed lamp and the
   assert.equal(await count(db, "object_attributes"), 3); // every attribute
   assert.equal(await count(db, "object_locks"), 1);
   assert.ok((await count(db, "object_audit")) > 0, "wizard reads the audit trail");
-  assert.equal(await count(db, "app_settings"), 2);
+  // recovery_window_seconds, default_quota (04) + registration_mode,
+  // registration_passphrase_hash (08 open-registration migration)
+  assert.equal(await count(db, "app_settings"), 4);
 });
 
 test("God (god tier) also sees the whole world", async () => {

@@ -111,6 +111,28 @@ export async function startServer(
         return;
       }
 
+      // Self-service registration (GM-R18 open-signup): a pre-auth act — mint an
+      // account + base-tier player (gated by the instance policy), then the
+      // client authenticates normally. No session is bound here.
+      if (msg.type === "register") {
+        if (!gateway.register) {
+          send({ type: "error", code: "REGISTRATION_UNSUPPORTED", text: "registration is not available here" });
+          return;
+        }
+        const result = await gateway.register({
+          name: msg.name,
+          email: msg.email,
+          password: msg.password,
+          ...(msg.passphrase ? { passphrase: msg.passphrase } : {}),
+        });
+        if (!result.ok) {
+          send({ type: "error", code: result.code, text: result.reason });
+          return;
+        }
+        send({ type: "registered", player: { id: result.playerId, name: result.playerName } });
+        return;
+      }
+
       if (!joined) {
         send({ type: "error", code: "NOT_AUTHENTICATED", text: "hello first" });
         return;
@@ -161,9 +183,10 @@ export async function startServer(
 
 // ------------------------------------------------------------- CLI entry
 // node src/server/server.ts  — the local playable check's server, over the
-// real local Supabase stack (5454x block). Requires the stack seeded and the
-// synthetic auth users created (npm run db:reset && npm run test:isolation,
-// or scripts in test/world).
+// real local Supabase stack (5454x block). Requires the stack seeded and
+// provisioned: `npm run db:reset` then `npm run first-boot` (mints god with a
+// provider-stored secret) and any player registrations. Clients present a
+// verified Supabase Auth JWT (src/server/client.ts signs in for you).
 
 const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop()!);
 if (isMain) {

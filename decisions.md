@@ -302,6 +302,58 @@ wire bytes over real sockets. This is the transcript-sanitizer discipline
 applied to player-generated output; growing the vocabulary is a data change,
 never a pass-through. *(GENMURK-EPIC1-07; `app/src/server/style.ts`.)*
 
+### Authentication: a verified Supabase Auth JWT, not a password on the wire
+A player authenticates against **Supabase Auth** — the studio's sanctioned
+identity service, whose password KDF is argon2/bcrypt-class (ADR-0048), a
+modern replacement for the reference's era-normal fixed-salt DES hashing
+(GM-R18; framed as the state of the art advancing, not the reference being
+wrong). The connection layer's HELLO token is the resulting **access-token
+JWT**: the server VERIFIES it and binds the session to the player object the
+principal is linked to (`objects.auth_user_id`, the RLS bridge). The server
+never handles a password, and the loudly-labelled 05 stub — the
+un-credentialed `stub:<name>` binding — is deleted. A forged, expired, or
+unbound token yields no session. *(GENMURK-EPIC1-08; GM-R18.)*
+
+### No default credentials; first boot provisions god from the provider store
+Nothing ships a god or wizard credential — not in the repo, seeds, fixtures, or
+docs (grep-proven in CI by a credential leak-check). A freshly reset world
+starts with God #1 present but UNBOUND; **first-boot provisioning** mints the
+god auth account with a **rotated secret sourced from the provider store**
+(`GENMURK_GOD_SECRET`; if absent it is generated and emitted once for the
+operator to store, never persisted) and binds it — idempotently, and proven by
+an automated fresh-stack login gate. Every credential lives in the provider
+store, read at runtime (GM-R19). *(GENMURK-EPIC1-08; GM-R18/R19.)*
+
+### Signup posture: open registration, gated by an optional instance passphrase
+Registration has **three operator-chosen modes** (`app_settings.registration_mode`,
+set by the god-only `world_set_registration`): **closed** (god-provisioned
+only), **open** (anyone self-registers), and **passphrase** (anyone who presents
+the one instance-wide passphrase). The passphrase is lightweight anti-spam
+gatekeeping — a single shared secret per instance, stored **bcrypt-hashed**
+(pgcrypto, the GM-R18 KDF class), never plaintext, never in the repo, checked
+server-side **before any account is minted** (a wrong passphrase creates
+nothing). The safe default is **closed**; opening the instance is an explicit
+god act. A self-registered player is always **base tier** in Limbo #0 — one
+player per account, no duplicate names — so registration never confers power.
+Heavier abuse controls (email verification, rate limiting, captcha) remain an
+ops-tail concern for hosted exposure (dependency register); the passphrase is
+the v1 gate. *(GENMURK-EPIC1-08.)*
+
+### Softcode capability attribution: the object and its owner, never the enactor
+Resolving the offline-owner question 07 left to 08: a world-attached program's
+**acting authority is the object** it runs on (objects carry only the base
+tier, so a program can touch only its own object and what its owner controls)
+and its writes **commit under the object's OWNER's authority** — the JWT-scoped
+RPC wall (`snapshot.applyMutations`). The player who trips a trigger (the
+ENACTOR) contributes **data** — `%0` name, `%1` id — and **never authority**,
+so a builder-owned object cannot wield wizard power even when a wizard sets it
+off; the escalation is refused at the engine wall and again at the RPC wall
+(both tested). An owner with **no live session** has that run's mutations
+**skipped and counted** — never applied with elevated or service rights;
+dropping a write loudly beats forging authority for it. A durable offline-owner
+execution principal is deferred (dependency register). *(GENMURK-EPIC1-08;
+GM-R15.)*
+
 ## Open
 
 ### Themed creative direction

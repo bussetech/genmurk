@@ -50,7 +50,7 @@ async function world(): Promise<{ coord: RoomCoordinator; gw: FixtureGateway; se
   let n = 0;
   async function seat(name: string): Promise<Seat> {
     const sessionId = `s${++n}`;
-    const player = await gw.authenticate(`stub:${name}`);
+    const player = await gw.authenticate(gw.tokenFor(name));
     assert.ok(player, `authenticate ${name}`);
     const received: ServerMessage[] = [];
     const s: Seat = {

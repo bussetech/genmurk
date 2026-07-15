@@ -100,7 +100,7 @@ async function seatAll(fixture: FixtureSpec, names: string[]): Promise<Map<strin
   let n = 0;
   for (const name of names) {
     const sessionId = `s${++n}`;
-    const player = await gw.authenticate(`stub:${name}`);
+    const player = await gw.authenticate(gw.tokenFor(name));
     assert.ok(player, `authenticate ${name}`);
     const received: ServerMessage[] = [];
     seats.set(name, {

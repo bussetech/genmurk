@@ -68,7 +68,7 @@ async function world(spec: FixtureSpec = SPEC): Promise<{
   let n = 0;
   async function seat(name: string): Promise<Seat> {
     const sessionId = `s${++n}`;
-    const player = await gw.authenticate(`stub:${name}`);
+    const player = await gw.authenticate(gw.tokenFor(name));
     assert.ok(player, `authenticate ${name}`);
     const received: ServerMessage[] = [];
     const seatObj: Seat = {

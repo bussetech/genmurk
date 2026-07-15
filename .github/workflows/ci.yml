@@ -55,5 +55,7 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
+      - name: Credential leak-check (GM-R18/R19 — zero default credentials)
+        run: npm run leak-check
       - name: Typecheck + softcode adversarial proof
         run: npm test

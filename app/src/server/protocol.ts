@@ -19,9 +19,12 @@ export type RoomEventKind = "arrive" | "depart" | "say" | "emote" | "announce" |
 
 // ---------------------------------------------------------- client → server
 
-/** First frame on a connection. AUTH STUB (GENMURK-EPIC1-05): the token is a
- *  placeholder binding (`stub:<PlayerName>`) until prompt 08's real auth
- *  (GM-R15/GM-R18) replaces it. Loudly not a credential. */
+/** First frame on a connection. The token is a VERIFIED credential
+ *  (GENMURK-EPIC1-08, GM-R18): a Supabase Auth access-token JWT the client
+ *  obtained by authenticating out of band. The server verifies it and binds
+ *  the session to the linked player (supabase-gateway.ts); the 05 stub token
+ *  is gone. (Stack-free transport tests present an opaque fixture-principal
+ *  token instead — no world of record, no credential to verify.) */
 export interface HelloMessage {
   type: "hello";
   token: string;
@@ -33,7 +36,21 @@ export interface CommandMessage {
   line: string;
 }
 
-export type ClientMessage = HelloMessage | CommandMessage;
+/** Self-service registration (GM-R18 open-signup posture). Sent BEFORE a
+ *  hello, on a connection with no session yet: the server provisions the auth
+ *  account + a base-tier player (gated by the instance registration policy),
+ *  and the client then authenticates normally. `passphrase` is supplied only
+ *  when the instance is in `passphrase` mode. Credentials travel here only over
+ *  the (localhost-only in v1) transport; login itself never carries a password. */
+export interface RegisterMessage {
+  type: "register";
+  name: string;
+  email: string;
+  password: string;
+  passphrase?: string;
+}
+
+export type ClientMessage = HelloMessage | CommandMessage | RegisterMessage;
 
 // ---------------------------------------------------------- server → client
 
@@ -43,6 +60,12 @@ export interface WelcomeMessage {
   player: { id: string; name: string };
   room: { id: string; name: string };
   occupants: string[];
+}
+
+/** Successful registration: the new player exists — authenticate to enter. */
+export interface RegisteredMessage {
+  type: "registered";
+  player: { id: string; name: string };
 }
 
 /** A room-scoped event — the ordered stream. */
@@ -78,6 +101,12 @@ export interface ErrorMessage {
   code:
     | "AUTH_FAILED"
     | "NOT_AUTHENTICATED"
+    // self-service registration (GM-R18 open-signup): the gate refused
+    // (closed instance / wrong passphrase), provisioning failed, or the
+    // backing store does not support registration (stack-free fixture)
+    | "REGISTRATION_REFUSED"
+    | "REGISTRATION_FAILED"
+    | "REGISTRATION_UNSUPPORTED"
     | "BAD_MESSAGE"
     | "UNKNOWN_COMMAND"
     | "NO_SUCH_EXIT"
@@ -99,6 +128,7 @@ export interface ErrorMessage {
 
 export type ServerMessage =
   | WelcomeMessage
+  | RegisteredMessage
   | RoomEventMessage
   | DirectedMessage
   | InfoMessage
@@ -118,6 +148,21 @@ export function parseClientMessage(raw: string): ClientMessage | null {
   }
   if (m["type"] === "command" && typeof m["line"] === "string") {
     return { type: "command", line: m["line"] };
+  }
+  if (
+    m["type"] === "register" &&
+    typeof m["name"] === "string" &&
+    typeof m["email"] === "string" &&
+    typeof m["password"] === "string" &&
+    (m["passphrase"] === undefined || typeof m["passphrase"] === "string")
+  ) {
+    return {
+      type: "register",
+      name: m["name"],
+      email: m["email"],
+      password: m["password"],
+      ...(typeof m["passphrase"] === "string" ? { passphrase: m["passphrase"] } : {}),
+    };
   }
   return null;
 }
