@@ -249,6 +249,59 @@ difference (GM-R14 wins) are recorded on the entry and rendered for returning
 users at `/compatibility/`. *(GENMURK-EPIC1-06; harness README
 `app/gm-r22/README.md`.)*
 
+### $-command precedence: built-ins always win, softcode never shadows a fixed verb
+Attribute-attached `$`-commands (an attribute valued `$<pattern>:<program>` —
+the `$` sigil is requirement-of-record vocabulary, the `:` separator
+provisional pending the capture) participate in dispatch **only for lines no
+built-in claims**. Player softcode can therefore never intercept `go`, `lock`,
+`quit`, … — an object in a room shadowing another player's fixed verbs is the
+spoofing class, and the safe behavior wins (GM-R22's own rule); if the capture
+shows the reference allowed shadowing, that becomes a recorded divergence.
+**Where the requirements were silent, decided and tested:** the scan covers the
+typist's neighborhood (room, co-located things, inventory things — players and
+exits carry no `$`-commands in v1), visits candidates and attribute names in
+deterministic order, fires **exactly one** first match, and the match work
+itself is fuel-metered under a per-object allowance so one hostile pattern set
+cannot deny `$`-commands to the rest of the room. *(GENMURK-EPIC1-07; design
+of record `app/docs/softcode-world.md`.)*
+
+### Softcode attribution: runs AS the object, billed to the object's OWNER
+A matched `$`-command or event-trigger program executes with the OBJECT as its
+acting principal (its permissions are the object's; an object additionally
+controls itself, so attached code can keep state on its own object) and with
+the object's OWNER as its budget principal: queue depth, drain quota, and
+scheduler fairness all key on the owner (`RunRequest.owner`, engine design
+§10.9). Consequences, both tested: an owner's fleet of objects multiplies
+nothing, and cross-owner budget theft is structurally impossible — the enactor
+who trips a hostile trigger is never billed and never punished, while a typist
+IS shown the typed refusal of a `$`-command they invoked. Softcode emits land
+in the **nearest enclosing room**. On the real stack a run's mutations apply
+through the OWNER's JWT (RLS + RPC checks stay the final wall); an unbound
+owner's mutations are skipped and counted — the offline-owner execution
+principal is prompt 08's. *(GENMURK-EPIC1-07.)*
+
+### Event triggers: ON_ARRIVE and ON_USE, through the queue, in v1
+World events evaluate attached softcode through the engine's fair scheduler:
+**arrival** into a room runs the room's and its co-located things' `ON_ARRIVE`
+(after the presence event, so every observer orders the arrival before its
+consequences), and **entering a thing** runs its `ON_USE`. The enactor is
+bound as `%0` (name) / `%1` (id). Trigger refusals die quietly by design (the
+enactor did not write the code). **Drop-class triggers are documented, not
+built** — they arrive with the get/drop verb surface, which is capture-gated
+(GM-R22) and outside 06's shipped verb set. Attribute names are
+GenMURK-internal per the library naming law. *(GENMURK-EPIC1-07.)*
+
+### Styled output (GM-R13): markup tokens on the wire, ANSI only at the client's fixed table
+Style travels as inert tokens (`[[spec]]text[[/]]`, produced by `out.style`);
+**every outbound frame is control-stripped at the single send door**, so no
+path — softcode emit, typed line, RPC-written attribute — can carry a raw
+escape byte into another player's client; the client renders tokens to SGR
+from a fixed vocabulary (bold, dim, underline, the classic 8 colors), dropping
+unknown or over-nested tokens and always resetting at line end. Proven on raw
+wire bytes over real sockets. This is the transcript-sanitizer discipline
+applied to player-generated output; growing the vocabulary is a data change,
+never a pass-through. *(GENMURK-EPIC1-07; `app/src/server/style.ts`.)*
+
 ## Open
 
 ### Themed creative direction

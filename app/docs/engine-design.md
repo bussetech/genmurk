@@ -287,3 +287,21 @@ incomplete, the change is recorded here with its reason — the doc stays true.
    (`ctl.switch`, `obj.resolve`). The `$`-command scan over in-scope objects
    arrives with the world model (04), which owns attribute enumeration; the
    player-visible surface stays GM-R22 capture data as designed.
+
+## 10. Implementation deltas (GENMURK-EPIC1-07 — softcode meets the world)
+
+9. **Runs carry a budget-attribution principal separate from the actor.**
+   `RunRequest.owner` (default: the actor) is the key the scheduler's
+   round-robin queues, drain quotas, and `queue.enqueue`'s depth cap use;
+   `PendingEntry` records both (`actor` = who the follow-on runs as, `owner`
+   = who it bills). Reason: object-attached softcode (`$`-commands, event
+   triggers — `src/server/softcode.ts`) runs AS the object but must bill the
+   object's OWNER, or an owner's fleet of objects multiplies its scheduler
+   share and a hostile object bills the enactor who tripped it (the
+   cross-owner budget-theft class; fixture 22 and the triggers tests pin
+   both directions). §3's per-owner language was always the intent — this
+   makes "owner" a first-class field instead of a synonym for "actor". The
+   `$`-command MATCH scan itself is fuel-charged through the engine's own
+   `Meter` under a per-object allowance at the dispatch layer, so pipeline
+   stage 3 (§2) is metered as designed even though it runs before any
+   program is chosen.
