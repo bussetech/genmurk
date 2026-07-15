@@ -26,12 +26,14 @@ handshake, and per-session ordering (a promise chain so a `say` typed after a
 
 Built-in verbs are **ordinary code and budget-free**: dig/open/create/set/
 name/describe/lock/go/enter/leave/look are fixed verbs the server implements,
-not untrusted input, so no fuel meter runs. **Only softcode is fuel-metered.**
-A `$`-command (prompt 07) will match in this same dispatcher and hand its
-program to the sandboxed engine (`engine.run`, budgeted); the engine's output
-reaches the transport ONLY through the world-API-mediated door (`routeEmits`,
-`server.ts`). Keeping the two paths visibly separate — one metered, one not —
-is the point. The dispatcher never imports the engine and never holds fuel.
+not untrusted input, so no fuel meter runs. **Only softcode is fuel-metered**
+— and as of GENMURK-EPIC1-07 that branch exists: a line no built-in claims
+goes to the `$`-command scan, and matched programs (like event-trigger
+programs) run through the sandboxed engine under `SOFTCODE_RUN_BUDGET`;
+engine output reaches the transport ONLY through the world-API-mediated door
+into each room's ordering domain. Keeping the two paths visibly separate —
+one metered, one not — is the point. Design record for the metered side:
+`app/docs/softcode-world.md`.
 
 ## 3. The gateway seam (world of record)
 

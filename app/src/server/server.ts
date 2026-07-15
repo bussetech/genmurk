@@ -16,11 +16,13 @@
 import { createServer } from "node:http";
 import process from "node:process";
 import { WebSocketServer, type WebSocket } from "ws";
+import { createEngine } from "../engine/engine.ts";
 import type { PendingEmit } from "../world/world-api.ts";
 import { RoomCoordinator } from "./coordinator.ts";
 import type { WorldGateway } from "./gateway.ts";
 import { parseClientMessage, type ServerMessage } from "./protocol.ts";
 import { dispatch } from "./dispatch.ts";
+import { sanitizeOutbound } from "./style.ts";
 import { SupabaseGateway } from "./supabase-gateway.ts";
 
 export interface ServerHandle {
@@ -54,6 +56,9 @@ export async function startServer(
   options: ServerOptions = {},
 ): Promise<ServerHandle> {
   const coordinator = new RoomCoordinator();
+  // the sandboxed softcode engine — production build, NO instrumentation
+  // (t.* test functions exist only under the proof harness)
+  const engine = createEngine();
   const httpServer = createServer((_req, res) => {
     res.writeHead(404, { "content-type": "text/plain" });
     res.end("genmurk dev server: WebSocket only\n");
@@ -66,8 +71,12 @@ export async function startServer(
     let joined = false;
     let chain: Promise<void> = Promise.resolve();
 
+    // THE WIRE BOUNDARY (GM-R13): every outbound frame is control-stripped
+    // here, so no path — softcode emit, typed line, RPC-written attribute —
+    // can carry raw escape bytes into a client. Style travels as markup
+    // tokens; ANSI exists only past the client's fixed renderer table.
     const send = (msg: ServerMessage): void => {
-      if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(msg));
+      if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(sanitizeOutbound(msg)));
     };
 
     const handle = async (raw: string): Promise<void> => {
@@ -112,7 +121,7 @@ export async function startServer(
       // ordering. Built-ins run here as ordinary code; softcode (07) is the
       // only fuel-metered path (see dispatch.ts § THE BUDGET BOUNDARY).
       await dispatch(
-        { coordinator, gateway, sessionId, send, disconnect: () => socket.close() },
+        { coordinator, gateway, engine, sessionId, send, disconnect: () => socket.close() },
         msg.line,
       );
     };

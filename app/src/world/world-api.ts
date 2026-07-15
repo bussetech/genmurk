@@ -50,6 +50,11 @@ export class WorldModel implements WorldAPI {
     const a = this.snap.objects.get(actorId);
     if (!a) return false;
     if (powerRank(a.power) >= 3) return true;
+    // An object controls ITSELF: players already do (they own themselves),
+    // and object-attached softcode running AS its object (GENMURK-EPIC1-07)
+    // must be able to keep state on its own object — its own boundary, no
+    // one else's. Self-control never crosses ownership.
+    if (targetId === actorId) return this.snap.objects.has(targetId);
     const t = this.snap.objects.get(targetId);
     return !!t && t.ownerId === actorId;
   }
@@ -89,9 +94,19 @@ export class WorldModel implements WorldAPI {
   emit(actor: string, text: string): void {
     // Buffered for prompt 05's transport to fan to room occupants; the engine
     // also collects emitted lines into RunOutcome.output, so this is a sink
-    // that additionally records the room the line belongs to.
-    const a = this.snap.objects.get(actor);
-    this.emits.push({ actorId: actor, roomId: a?.locationId ?? null, text });
+    // that additionally records the room the line belongs to. The line lands
+    // in the NEAREST ENCLOSING ROOM (GENMURK-EPIC1-07): a room speaks into
+    // itself; a thing in a room speaks there; a pocket gadget speaks into its
+    // holder's room. Bounded walk — a containment anomaly yields null (the
+    // emit is dropped at routing), never a spin.
+    let cur = this.snap.objects.get(actor);
+    let hops = 0;
+    while (cur && cur.type !== "room" && hops < 64) {
+      cur = cur.locationId ? this.snap.objects.get(cur.locationId) : undefined;
+      hops++;
+    }
+    const roomId = cur && cur.type === "room" ? cur.id : null;
+    this.emits.push({ actorId: actor, roomId, text });
   }
 
   name(actor: string, target: string): string | WorldRefusal {

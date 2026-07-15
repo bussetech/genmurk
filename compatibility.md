@@ -25,7 +25,13 @@ argument punctuation may be reconciled when the canonical list arrives.
 
 What works today, end to end: **speaking** (say, emote), **reaching people
 elsewhere** (page, whisper, announce), **getting around** (go, enter, leave,
-look), and **building** (dig, open, create, set, name, describe, lock).
+look), **building** (dig, open, create, set, name, describe, lock), and —
+the thing that makes a MUSE a MUSE — **programming the world**: attaching
+`$`-commands to objects (an attribute valued `$<pattern>:<program>`, wildcard
+captures and all), event triggers that run when someone arrives or uses a
+thing, a fairly-scheduled command queue, and softcode-driven styled output.
+The `$` sigil is preserved from the domain; the exact separator punctuation
+is one of the details the canonical capture will settle.
 
 ## Where GenMURK diverges — and why
 
@@ -38,6 +44,17 @@ would conflict with that, GenMURK keeps the *safe* behavior and records the
 difference here. This is the state of the art advancing — the reference is
 honoured as what taught the domain.
 
+- **User softcode never shadows a built-in command.** A `$`-command only
+  matches a line no fixed verb claims, so an object in a room can never
+  intercept another player's `go`, `lock`, or `quit` — that would be a
+  spoofing vector, and modern security practice keeps fixed verbs fixed. If
+  the canonical capture shows the reference resolved this differently, the
+  difference will be recorded here; the safe behavior stays.
+- **Styled output is a fixed vocabulary, never raw escape codes.** Softcode
+  styles text through markup that the client renders from a fixed table
+  (emphasis and the classic colors). Raw terminal control bytes are stripped
+  at the server boundary, whatever path they arrive by — styling can
+  decorate your transcript, never rewrite someone else's terminal.
 - **Locks — bounded expression grammar.** A lock's boolean *expression*
   (the "key") accepts a deliberately-bounded, safe subset of the reference's
   key language. Where the reference key form is richer, GenMURK rejects it

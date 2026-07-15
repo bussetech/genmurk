@@ -6,11 +6,17 @@
 
 import process from "node:process";
 import readline from "node:readline";
+import { renderMarkup } from "./style.ts";
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
+
+// GM-R13 styled output: markup tokens arrive on the wire; ANSI is produced
+// HERE, from the renderer's fixed SGR table, and only on a real terminal.
+const ansi = process.stdout.isTTY === true && process.env["NO_COLOR"] === undefined;
+const styled = (text: string): string => renderMarkup(text, { ansi });
 
 const token = arg("token");
 const url = arg("url", "ws://127.0.0.1:8787")!;
@@ -50,24 +56,24 @@ ws.addEventListener("message", (ev) => {
           print(`>> ${msg.actorName} leaves.`);
           break;
         case "say":
-          print(`${msg.actorName}: ${msg.text}`);
+          print(`${msg.actorName}: ${styled(msg.text)}`);
           break;
         case "emote":
-          print(`* ${msg.actorName} ${msg.text}`);
+          print(`* ${msg.actorName} ${styled(msg.text)}`);
           break;
         case "announce":
-          print(`[announce] ${msg.actorName}: ${msg.text}`);
+          print(`[announce] ${msg.actorName}: ${styled(msg.text)}`);
           break;
         case "emit":
-          print(`(${msg.actorName}) ${msg.text}`);
+          print(`(${msg.actorName}) ${styled(msg.text)}`);
           break;
       }
       break;
     case "message":
-      print(`[${msg.kind} from ${msg.fromName}] ${msg.text}`);
+      print(`[${msg.kind} from ${msg.fromName}] ${styled(msg.text)}`);
       break;
     case "info":
-      print(msg.text);
+      print(styled(msg.text));
       break;
     case "error":
       print(`! ${msg.code}: ${msg.text}`);

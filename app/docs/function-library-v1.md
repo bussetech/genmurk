@@ -91,13 +91,13 @@ WorldAPI re-checks the acting player's permissions (GM-R15) on every call.
 | internal name | behavior |
 | --- | --- |
 | `out.emit(text)` | say-to-context output via WorldAPI; rate/size governed by the allocation account |
-| `out.style(text, spec)` | wrap text in GenMURK's markup tokens — `[[spec]]text[[/]]`, `spec` validated against `[a-z][a-z0-9:,-]*` (bold/color classes per GM-R13); the *renderer* maps tokens to ANSI/markup at the transport — softcode never emits raw escape bytes, so styled output cannot smuggle terminal control sequences |
+| `out.style(text, spec)` | wrap text in GenMURK's markup tokens — `[[spec]]text[[/]]`, `spec` validated against `[a-z][a-z0-9:,-]*` (bold/color classes per GM-R13); the *renderer* maps tokens to ANSI/markup at the transport — softcode never emits raw escape bytes, so styled output cannot smuggle terminal control sequences. The rendered vocabulary is `src/server/style.ts` (GENMURK-EPIC1-07): bold, dim, underline, `color:<the classic 8>`; unknown specs are dropped tokens at the renderer, and the wire boundary control-strips every outbound frame |
 
 ### 7. Queue (GM-R11)
 
 | internal name | behavior |
 | --- | --- |
-| `queue.enqueue(target, attr, args…)` | schedule an attribute evaluation as a new queue entry — charged against the per-run enqueue ceiling and the owner's queue-depth cap (`QUEUE_BUDGET_EXCEEDED` at the enqueue site when exceeded); the entry runs later under its own fresh per-invocation budget on its owner's scheduler turn |
+| `queue.enqueue(target, attr, args…)` | schedule an attribute evaluation as a new queue entry — charged against the per-run enqueue ceiling and the owner's queue-depth cap (`QUEUE_BUDGET_EXCEEDED` at the enqueue site when exceeded); the entry runs later under its own fresh per-invocation budget on its owner's scheduler turn. "Owner" is the run's budget-attribution principal (GENMURK-EPIC1-07): object-attached softcode runs AS its object but bills the object's OWNER, and follow-ons inherit both (engine design §10.9) |
 
 ### 8. Test instrumentation (harness only — never in production)
 

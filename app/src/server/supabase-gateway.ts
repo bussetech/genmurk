@@ -26,9 +26,10 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Power, WorldSnapshot } from "../world/types.ts";
 import { publicId } from "../world/types.ts";
-import { loadSnapshot } from "../world/snapshot.ts";
+import { applyMutations, loadSnapshot } from "../world/snapshot.ts";
 import { createWorldModel, type WorldModel } from "../world/world-api.ts";
 import type { Resolution } from "../world/resolve.ts";
+import { matchDollarCommand, collectTriggers, type SoftcodeRun, type TriggerKind } from "./softcode.ts";
 import type {
   ActResult,
   BuildErrorCode,
@@ -36,6 +37,7 @@ import type {
   GatewayPlayer,
   LookResult,
   MoveResult,
+  SoftcodeBatch,
   WorldGateway,
 } from "./gateway.ts";
 import type { LockKind } from "./verbs.ts";
@@ -283,6 +285,64 @@ export class SupabaseGateway implements WorldGateway {
     return this.mutating(playerId, targetToken, (actor, uuid) =>
       actor.rpc("world_rename", { p_target: uuid, p_name: newName }),
     );
+  }
+
+  // ---- softcode meets the world (GENMURK-EPIC1-07) ------------------------
+
+  /** Wrap prepared runs over a fresh neighborhood snapshot. Mutations a run
+   *  journals apply through ITS OWNER's JWT-scoped client — the same
+   *  applyMutations discipline as src/world/snapshot.ts, so RLS + the RPC
+   *  role checks stay the final wall under softcode too. An owner with no
+   *  bound session has that run's mutations SKIPPED and counted: the
+   *  offline-owner execution principal is prompt 08's auth/capability work,
+   *  and dropping writes loudly beats applying them with elevated rights. */
+  private batchOver(l: Loaded, runs: SoftcodeRun[]): SoftcodeBatch | null {
+    if (runs.length === 0) return null;
+    return {
+      world: l.world,
+      runs,
+      nameOf: (id) => l.snapshot.objects.get(id)?.name ?? id,
+      apply: async (outcomes) => {
+        let applied = 0;
+        let skippedUnbound = 0;
+        for (let i = 0; i < outcomes.length; i++) {
+          const outcome = outcomes[i];
+          const run = runs[i];
+          if (!outcome || !run || outcome.status !== "completed") continue;
+          if (outcome.mutations.length === 0) continue;
+          const ownerSession = this.bound.get(run.owner);
+          if (!ownerSession) {
+            skippedUnbound++;
+            continue;
+          }
+          await applyMutations(ownerSession.actor, l.refToUuid, outcome.mutations);
+          applied++;
+        }
+        return { applied, skippedUnbound };
+      },
+    };
+  }
+
+  async softcodeCommand(playerId: string, line: string): Promise<SoftcodeBatch | null> {
+    const l = await this.loadFor(playerId);
+    if (!l) return null;
+    const match = matchDollarCommand(l.snapshot, playerId, line);
+    return match ? this.batchOver(l, [match]) : null;
+  }
+
+  async softcodeTriggers(
+    playerId: string,
+    event: { kind: TriggerKind; targetId: string },
+  ): Promise<SoftcodeBatch | null> {
+    const l = await this.loadFor(playerId);
+    if (!l) return null;
+    const me = l.snapshot.objects.get(playerId);
+    if (!me) return null;
+    const runs = collectTriggers(l.snapshot, event.kind, event.targetId, {
+      id: playerId,
+      name: me.name,
+    });
+    return this.batchOver(l, runs);
   }
 
   async close(): Promise<void> {

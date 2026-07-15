@@ -34,6 +34,9 @@ import type {
 const DRAIN_EXECUTIONS_PER_DEPTH_UNIT = 4;
 
 interface QueueEntry {
+  /** the principal the entry runs as */
+  actor: string;
+  /** the budget/fairness attribution principal (queues + quotas key on this) */
   owner: string;
   budget: Budget;
   /** a submitted request (program) or a committed follow-on (target attr) */
@@ -78,7 +81,8 @@ export class Scheduler {
     for (let i = 0; i < requests.length; i++) {
       const r = requests[i];
       this.push(queues, {
-        owner: r.actor,
+        actor: r.actor,
+        owner: r.owner ?? r.actor,
         budget: r.budget,
         work: { kind: "program", program: r.program, args: r.args ?? [] },
         resultIndex: i,
@@ -140,6 +144,7 @@ export class Scheduler {
   ): void {
     for (const p of pending)
       this.push(queues, {
+        actor: p.actor,
         owner: p.owner,
         budget,
         work: { kind: "attr", target: p.target, attr: p.attr, args: p.args },
@@ -156,7 +161,8 @@ export class Scheduler {
     if (entry.work.kind === "program")
       return this.executeProgram(
         {
-          actor: entry.owner,
+          actor: entry.actor,
+          owner: entry.owner,
           program: entry.work.program,
           args: entry.work.args,
           budget: entry.budget,
@@ -166,16 +172,18 @@ export class Scheduler {
       );
 
     // a committed follow-on: the attribute text is re-read AND
-    // permission-re-checked at execution time, never captured at enqueue time
+    // permission-re-checked at execution time (as the entry's ACTOR), never
+    // captured at enqueue time
     const { target, attr, args } = entry.work;
     const meter = new Meter(entry.budget);
     const inv = new Invocation(
-      entry.owner,
+      entry.actor,
       meter,
       world,
       entry.budget,
       (owner) => queues.get(owner)?.length ?? 0,
       args,
+      entry.owner,
     );
     return this.invoke(inv, meter, entry.budget, queues, () => {
       const text = inv.world.getAttr(entry.owner, target, attr);
@@ -199,6 +207,7 @@ export class Scheduler {
       request.budget,
       (owner) => queues.get(owner)?.length ?? 0,
       request.args ?? [],
+      request.owner,
     );
     return this.invoke(inv, meter, request.budget, queues, () => {
       const node = parse(request.program, meter);

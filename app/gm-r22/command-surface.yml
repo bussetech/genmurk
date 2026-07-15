@@ -144,3 +144,13 @@ commands:
     provisional: true
     implemented: true
     divergence: "the lock EXPRESSION grammar is a bounded safe subset (GM-R14); richer reference key forms are rejected outright, never approximated (safe behavior wins, documented for the returning user)"
+
+  # --- NOT an entry: the $-command MECHANISM (GENMURK-EPIC1-07) -------------
+  # Attribute-attached softcode commands (`$<pattern>:<program>`) are a
+  # user-defined surface, not a fixed verb, so they cannot be a `commands:`
+  # entry the runner drives through the parser. The `$` sigil is GM-R11/D3
+  # requirement-of-record vocabulary; the `:` separator and any reference
+  # conventions around user-defined command syntax are CAPTURE QUESTIONS.
+  # Recorded divergence class already in force: built-ins always win — user
+  # softcode cannot shadow a fixed verb (the safe behavior; see decisions.md
+  # and /compatibility/).

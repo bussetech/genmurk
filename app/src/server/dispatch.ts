@@ -9,29 +9,79 @@
 // budget-free: dig/open/create/set/name/describe/lock/go/enter/leave/look run
 // as plain server logic with no fuel meter, because they are not untrusted
 // input — the player typed a fixed verb the server implements. Only SOFTCODE
-// is fuel-metered: a `$`-command (prompt 07) will match here and hand its
-// program to the sandboxed engine (engine.run, budgeted), whose output reaches
-// the transport ONLY through the world-API-mediated door (routeEmits in
-// server.ts). This dispatcher never touches the engine and never holds fuel;
-// keeping the two paths visibly separate is the point. When 07 adds
-// `$`-command matching it slots in as one more branch that — unlike every
-// branch here — runs metered.
+// is fuel-metered, and as of GENMURK-EPIC1-07 that branch EXISTS: a line no
+// built-in claims goes to the `$`-command scan (softcode.ts, match work
+// metered), and a matched program — like every event-trigger program — runs
+// through the sandboxed engine (runSoftcodeBatch below, THE one metered call
+// in this file) under SOFTCODE_RUN_BUDGET, as its object, attributed to its
+// object's owner. Engine output reaches the transport ONLY through the
+// world-API-mediated door: buffered PendingEmits routed into each room's
+// ordering domain (coordinator.softcodeEmit), the same door routeEmits in
+// server.ts uses. Precedence is decided and tested: BUILT-INS ALWAYS WIN —
+// softcode can never shadow a fixed verb (decisions.md).
 //
 // This module is transport-agnostic: it takes a `send` sink and a `disconnect`
 // signal, so the same pipeline is exercised by the stack-free dispatch tests
 // (a recording sink + FixtureGateway) and by the live WS server (server.ts).
 
+import type { RunOutcome, RunRequest, SoftcodeEngine } from "../engine/types.ts";
 import type { RoomCoordinator } from "./coordinator.ts";
-import type { WorldGateway } from "./gateway.ts";
+import type { SoftcodeBatch, WorldGateway } from "./gateway.ts";
 import type { ServerMessage } from "./protocol.ts";
+import { SOFTCODE_RUN_BUDGET, type TriggerKind } from "./softcode.ts";
 import { parseCommand } from "./verbs.ts";
 
 export interface DispatchDeps {
   coordinator: RoomCoordinator;
   gateway: WorldGateway;
+  /** the sandboxed softcode engine — held by the DISPATCH layer, never by
+   *  softcode-reachable code (the engine cannot reach itself) */
+  engine: SoftcodeEngine;
   sessionId: string;
   send(msg: ServerMessage): void;
   disconnect(): void;
+}
+
+/**
+ * THE metered branch: run a prepared softcode batch through the sandboxed
+ * engine's fair scheduler, route its buffered emits through the sanctioned
+ * door into each room's ordering domain, then apply journaled mutations to
+ * the world of record. Outcomes return parallel to batch.runs; refusals are
+ * values the CALLER decides how to surface (a typist sees their `$`-command
+ * refuse; a mover is never punished for a room's hostile trigger).
+ */
+async function runSoftcodeBatch(deps: DispatchDeps, batch: SoftcodeBatch): Promise<RunOutcome[]> {
+  const requests: RunRequest[] = batch.runs.map((r) => ({
+    actor: r.actor,
+    owner: r.owner,
+    program: r.program,
+    args: r.args,
+    budget: SOFTCODE_RUN_BUDGET,
+  }));
+  const outcomes = deps.engine.runMany(requests, batch.world);
+  for (const e of batch.world.emits) {
+    if (e.roomId !== null) {
+      deps.coordinator.softcodeEmit(e.roomId, e.actorId, batch.nameOf(e.actorId), e.text);
+    }
+  }
+  await batch.apply(outcomes);
+  return outcomes;
+}
+
+/** Fire the event triggers a successful movement caused. Trigger refusals
+ *  are typed values that die here by design: the enactor did not write the
+ *  code and is not told about — or delayed by more than the budget allows
+ *  for — someone else's refused program. */
+async function fireTriggers(
+  deps: DispatchDeps,
+  playerId: string,
+  kinds: TriggerKind[],
+  targetId: string,
+): Promise<void> {
+  for (const kind of kinds) {
+    const batch = await deps.gateway.softcodeTriggers(playerId, { kind, targetId });
+    if (batch) await runSoftcodeBatch(deps, batch);
+  }
 }
 
 /** Run one already-authenticated command line. Awaits any world-of-record
@@ -79,6 +129,10 @@ export async function dispatch(deps: DispatchDeps, line: string): Promise<void> 
       if (!moved.ok) return send({ type: "error", code: moved.code, text: moved.reason });
       coordinator.moveSession(sessionId, moved.roomId, moved.roomName);
       send({ type: "info", text: roomLine(moved.roomName, coordinator.occupants(moved.roomId)) });
+      // GM-R11 event triggers: arrival evaluates the destination's attached
+      // softcode through the queue (after the arrive presence event, so every
+      // observer orders "Bob arrives" before what Bob's arrival caused)
+      await fireTriggers(deps, pid, ["arrive"], moved.roomId);
       return;
     }
     case "enter": {
@@ -88,6 +142,9 @@ export async function dispatch(deps: DispatchDeps, line: string): Promise<void> 
       if (!moved.ok) return send({ type: "error", code: moved.code, text: moved.reason });
       coordinator.moveSession(sessionId, moved.roomId, moved.roomName);
       send({ type: "info", text: roomLine(moved.roomName, coordinator.occupants(moved.roomId)) });
+      // an entered THING fires its use-class trigger; an entered room, arrival
+      // (collectTriggers keys on the target's type — the other kind is a no-op)
+      await fireTriggers(deps, pid, ["use", "arrive"], moved.roomId);
       return;
     }
     case "leave": {
@@ -97,6 +154,7 @@ export async function dispatch(deps: DispatchDeps, line: string): Promise<void> 
       if (!moved.ok) return send({ type: "error", code: moved.code, text: moved.reason });
       coordinator.moveSession(sessionId, moved.roomId, moved.roomName);
       send({ type: "info", text: roomLine(moved.roomName, coordinator.occupants(moved.roomId)) });
+      await fireTriggers(deps, pid, ["arrive"], moved.roomId);
       return;
     }
     case "look": {
@@ -175,9 +233,29 @@ export async function dispatch(deps: DispatchDeps, line: string): Promise<void> 
     case "quit":
       deps.disconnect();
       return;
-    case "unknown":
+    case "unknown": {
+      // No built-in claimed the line (precedence: built-ins ALWAYS win) —
+      // scan the neighborhood for a `$`-command. This is the path into THE
+      // metered branch: the matched program runs sandboxed, as its object,
+      // billed to its object's owner; its wildcard captures are its %0..%9.
+      const pid = playerId();
+      if (pid) {
+        const batch = await gateway.softcodeCommand(pid, cmd.input);
+        if (batch) {
+          const [outcome] = await runSoftcodeBatch(deps, batch);
+          if (outcome && outcome.status === "refused") {
+            send({
+              type: "error",
+              code: "SOFTCODE_REFUSED",
+              text: `${batch.runs[0]!.objectName}: ${outcome.refusalCode ?? "refused"}`,
+            });
+          }
+          return;
+        }
+      }
       send({ type: "error", code: "UNKNOWN_COMMAND", text: `unknown command: ${cmd.input}` });
       return;
+    }
   }
 }
 
