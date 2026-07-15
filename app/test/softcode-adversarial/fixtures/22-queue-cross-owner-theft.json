@@ -1,0 +1,15 @@
+{
+  "name": "22-queue-cross-owner-theft",
+  "attackClass": "queue-abuse",
+  "description": "Cross-owner budget theft through the queue (world-integrated round, GENMURK-EPIC1-07): the attacker enqueues an evaluation of a FOREIGN object's attribute, hoping the work lands on someone else's account. It cannot: the follow-on entry runs as the ENQUEUER and is billed to the enqueuer's owner key, and the attribute read is permission-re-checked at execution time — a PERMISSION_DENIED refusal, the foreign object untouched. The victim's own run completes with its output intact.",
+  "budget": { "steps": 5000, "recursionDepth": 16, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "runs": [
+    { "actor": "#1", "program": "queue.enqueue(\"#900\", \"FN\")" },
+    { "actor": "#902", "program": "out.emit(\"my budget is my own\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["completed"], "mutations": [] },
+    { "statusAnyOf": ["completed"], "mutations": [], "output": ["my budget is my own"] }
+  ],
+  "integrityProbe": true
+}

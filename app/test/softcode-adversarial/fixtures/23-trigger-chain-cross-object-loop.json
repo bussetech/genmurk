@@ -1,0 +1,19 @@
+{
+  "name": "23-trigger-chain-cross-object-loop",
+  "attackClass": "queue-abuse",
+  "description": "The A-triggers-B-triggers-A loop (world-integrated round, GENMURK-EPIC1-07): two objects with the same owner enqueue each other's programs in a mutual chain — the queue-mediated form of an event-trigger loop, since v1 softcode cannot cause movement events. Growth must terminate by arithmetic: transactional enqueues plus the OWNER drain quota bound the total executions the shared owner can buy, whichever object the entries bounce through. The watchdog fails this fixture if the chain spins.",
+  "budget": { "steps": 5000, "recursionDepth": 16, "enqueuePerRun": 4, "queueDepthPerOwner": 8, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "world": {
+    "objects": {
+      "#1": { "owner": "#1", "attrs": { "PING": "queue.enqueue(\"#3\", \"PONG\")" } },
+      "#3": { "owner": "#1", "attrs": { "PONG": "queue.enqueue(\"#1\", \"PING\")" } }
+    }
+  },
+  "runs": [
+    { "actor": "#1", "program": "obj.callAttr(me, \"PING\")" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["completed", "refused"], "refusalCodesAnyOf": ["QUEUE_BUDGET_EXCEEDED"], "mutations": [] }
+  ],
+  "integrityProbe": true
+}

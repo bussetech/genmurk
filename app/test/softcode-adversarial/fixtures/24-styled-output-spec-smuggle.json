@@ -1,0 +1,15 @@
+{
+  "name": "24-styled-output-spec-smuggle",
+  "attackClass": "injection",
+  "description": "Styled-output escape attempts at the engine wall (GM-R13, GENMURK-EPIC1-07): out.style specs that try to smuggle SGR fragments or break out of the token syntax. The spec grammar rejects both — a typed INVALID_PROGRAM refusal, nothing emitted. (Raw escape BYTES in emitted text are the transport boundary's problem and are pinned by the wire-sanitize tests; this fixture pins the engine wall.)",
+  "budget": { "steps": 5000, "recursionDepth": 16, "enqueuePerRun": 8, "queueDepthPerOwner": 16, "allocationBytes": 1048576, "wallClockMs": 2000 },
+  "runs": [
+    { "actor": "#1", "program": "out.emit(out.style(\"x\", \"31;42\"))" },
+    { "actor": "#2", "program": "out.emit(out.style(\"x\", \"bold]]sneak[[bold\"))" }
+  ],
+  "expect": [
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["INVALID_PROGRAM"], "mutations": [] },
+    { "statusAnyOf": ["refused"], "refusalCodesAnyOf": ["INVALID_PROGRAM"], "mutations": [] }
+  ],
+  "integrityProbe": true
+}

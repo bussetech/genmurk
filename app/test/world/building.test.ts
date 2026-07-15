@@ -17,6 +17,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { RoomCoordinator } from "../../src/server/coordinator.ts";
 import { SupabaseGateway } from "../../src/server/supabase-gateway.ts";
 import { dispatch } from "../../src/server/dispatch.ts";
+import { createEngine } from "../../src/engine/engine.ts";
 import type { ServerMessage, RoomEventMessage } from "../../src/server/protocol.ts";
 
 const url = process.env["SUPABASE_URL"] ?? "http://127.0.0.1:54541";
@@ -36,6 +37,7 @@ function service(): SupabaseClient {
 
 let gateway: SupabaseGateway;
 let coordinator: RoomCoordinator;
+const engine = createEngine();
 
 interface Seat {
   sessionId: string;
@@ -69,7 +71,7 @@ async function connect(name: string): Promise<Seat> {
     sessionId,
     playerId: player.playerId,
     received,
-    run: (line) => dispatch({ coordinator, gateway, sessionId, send, disconnect: () => {} }, line),
+    run: (line) => dispatch({ coordinator, gateway, engine, sessionId, send, disconnect: () => {} }, line),
     events: () => received.filter((m): m is RoomEventMessage => m.type === "event"),
     infos: () =>
       received
@@ -179,4 +181,70 @@ test("a scripted build session: dig, open both ways, create, lock, refuse, move 
     .eq("actor_id", merlinRow!.id as string)
     .in("kind", ["arrive", "depart"]);
   assert.ok((evs?.length ?? 0) >= 2, "world_events holds Merlin's arrive/depart (durable record)");
+});
+
+test("softcode meets the real stack: $-command from a second player, arrival trigger, styled emit, owner-JWT mutation", async () => {
+  // test SETUP, not gameplay: put the cast back at the seeded start so this
+  // scenario does not depend on where the build session left them
+  const svc0 = service();
+  const { data: town } = await svc0
+    .from("objects")
+    .select("id")
+    .eq("name", "Town Square")
+    .eq("type", "room")
+    .single();
+  await svc0
+    .from("objects")
+    .update({ location_id: town!.id as string })
+    .eq("type", "player")
+    .in("name", ["Merlin", "Cara"]);
+
+  const merlin = await connect("Merlin"); // wizard — will OWN the parlor
+  const cara = await connect("Cara"); // the second player
+
+  // Merlin builds a room he owns and wires softcode onto it (GM-R7 + GM-R11)
+  await merlin.run("dig The Parlor");
+  await merlin.run("open parlor = The Parlor");
+  await merlin.run("go parlor");
+  await merlin.run(
+    'set here = GREET:$knock *:obj.setAttr(me, "KNOCKS", %0); out.emit(out.style(str.concat("The parlor door knocks ", %0), "color:yellow"))',
+  );
+  await merlin.run('set here = ON_ARRIVE:out.emit(str.concat(%0, " steps into the parlor."))');
+  assert.deepEqual(merlin.errors(), [], "wiring the softcode produced no errors");
+  merlin.clear();
+
+  // Cara's ARRIVAL fires the room's trigger through the queue (GM-R11)
+  await cara.run("go parlor");
+  const arrival = merlin.events().find((e) => e.kind === "emit");
+  assert.ok(arrival, "the arrival trigger fired through the real stack");
+  assert.equal(arrival.text, "Cara steps into the parlor.");
+  const arrive = merlin.events().find((e) => e.kind === "arrive");
+  assert.ok(arrive && arrival.roomSeq > arrive.roomSeq, "presence orders before its consequences");
+
+  // Cara's typed line matches the room's $-command: styled output for every
+  // occupant, and the journaled mutation applies via the OWNER's JWT (RLS +
+  // RPC checks stay the final wall under softcode)
+  merlin.clear();
+  cara.clear();
+  await cara.run("knock twice");
+  for (const seat of [merlin, cara]) {
+    const emit = seat.events().find((e) => e.kind === "emit");
+    assert.ok(emit, "the $-command emit reached the room");
+    assert.equal(emit.text, "[[color:yellow]]The parlor door knocks twice[[/]]", "styled as inert markup tokens");
+  }
+
+  const svc2 = service();
+  const { data: parlorRow } = await svc2
+    .from("objects")
+    .select("id")
+    .eq("name", "The Parlor")
+    .eq("type", "room")
+    .single();
+  const { data: knocks } = await svc2
+    .from("object_attributes")
+    .select("value")
+    .eq("object_id", parlorRow!.id as string)
+    .eq("name", "KNOCKS")
+    .single();
+  assert.equal(knocks?.value, "twice", "the softcode mutation landed in the world of record");
 });

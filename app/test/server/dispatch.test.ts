@@ -7,6 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createEngine } from "../../src/engine/engine.ts";
 import { RoomCoordinator } from "../../src/server/coordinator.ts";
 import { FixtureGateway, type FixtureSpec } from "../../src/server/gateway.ts";
 import { dispatch, type DispatchDeps } from "../../src/server/dispatch.ts";
@@ -45,6 +46,7 @@ interface Seat {
 async function world(): Promise<{ coord: RoomCoordinator; gw: FixtureGateway; seat(name: string): Promise<Seat> }> {
   const coord = new RoomCoordinator();
   const gw = new FixtureGateway(SPEC);
+  const engine = createEngine();
   let n = 0;
   async function seat(name: string): Promise<Seat> {
     const sessionId = `s${++n}`;
@@ -61,6 +63,7 @@ async function world(): Promise<{ coord: RoomCoordinator; gw: FixtureGateway; se
           {
             coordinator: coord,
             gateway: gw,
+            engine,
             sessionId,
             send: (m) => received.push(m),
             disconnect: () => {
