@@ -9,7 +9,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "tripwire": "node test/tripwire.ts",
-    "unit": "node --test 'test/unit/*.test.ts' 'test/property/*.test.ts'",
+    "unit": "node --test 'test/unit/*.test.ts' 'test/property/*.test.ts' 'test/server/*.test.ts'",
+    "server": "node src/server/server.ts",
+    "client": "node src/server/client.ts",
     "proof": "node test/harness/harness.ts",
     "proof:realworld": "GENMURK_REAL_WORLD=1 node test/harness/harness.ts",
     "bench": "node test/bench.ts",
@@ -21,6 +23,8 @@
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "@types/node": "^22.20.1",
-    "typescript": "5.7.3"
+    "@types/ws": "^8.18.1",
+    "typescript": "5.7.3",
+    "ws": "^8.21.1"
   }
 }
