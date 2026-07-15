@@ -144,6 +144,89 @@ export async function provisionFirstBoot(
   };
 }
 
+// ------------------------------------------------------- open registration
+
+export interface RegistrationMode {
+  mode: "closed" | "open" | "passphrase";
+  requiresPassphrase: boolean;
+}
+
+/** The instance's current registration posture — safe to show anyone (it never
+ *  reveals the passphrase), so a client can prompt correctly before any login. */
+export async function getRegistrationMode(cfg: AdminConfig): Promise<RegistrationMode> {
+  const { data, error } = await admin(cfg).rpc("world_registration_mode");
+  if (error) throw new Error(`registration mode: ${error.message}`);
+  const row = data as { mode: RegistrationMode["mode"]; requires_passphrase: boolean };
+  return { mode: row.mode, requiresPassphrase: row.requires_passphrase };
+}
+
+export interface RegisterOpenOptions {
+  name: string;
+  email: string;
+  /** the new player's chosen secret; generated + returned if omitted */
+  secret?: string;
+  /** the instance passphrase, when the instance is in `passphrase` mode */
+  passphrase?: string;
+}
+
+/** Raised when the registration gate refuses (closed instance / wrong
+ *  passphrase). A distinct type so the transport can map it to a clean
+ *  client error without leaking which it was beyond what the mode already tells. */
+export class RegistrationRefused extends Error {}
+
+/**
+ * Self-service registration (GM-R18; the ruled open-signup posture). Checks the
+ * instance gate FIRST — nothing is minted for a closed instance or a wrong
+ * passphrase — then creates the auth account (Supabase Auth's KDF) and a
+ * BASE-TIER player bound to it, in one shot. On any failure after the account
+ * is created, the orphan account is removed. Self-registration never yields
+ * elevated power.
+ */
+export async function registerOpen(
+  cfg: AdminConfig,
+  opts: RegisterOpenOptions,
+): Promise<RegisterPlayerResult> {
+  const svc = admin(cfg);
+
+  const { data: ok, error: checkErr } = await svc.rpc("_world_check_registration", {
+    p_passphrase: opts.passphrase ?? null,
+  });
+  if (checkErr) throw new Error(`registration check: ${checkErr.message}`);
+  if (!ok) {
+    const { mode } = await getRegistrationMode(cfg);
+    throw new RegistrationRefused(
+      mode === "closed" ? "registration is closed on this instance" : "incorrect registration passphrase",
+    );
+  }
+
+  const generated = opts.secret ? undefined : generateSecret();
+  const secret = opts.secret ?? generated!;
+  const authUser = await ensureAuthUser(svc, opts.email, secret);
+
+  let uuid: string;
+  try {
+    const { data: newUuid, error: regErr } = await svc.rpc("world_register_player", {
+      p_name: opts.name,
+      p_auth: authUser.id,
+    });
+    if (regErr || !newUuid) throw new RegistrationRefused(regErr?.message ?? "registration failed");
+    uuid = newUuid as unknown as string;
+  } catch (err) {
+    // roll back the just-created account if it was new to us and the player
+    // could not be created (duplicate name, already-registered account, …)
+    if (authUser.created) await svc.auth.admin.deleteUser(authUser.id).catch(() => {});
+    throw err;
+  }
+
+  const { data: row } = await svc.from("objects").select("dbref").eq("id", uuid).single();
+  return {
+    dbref: (row?.dbref as number) ?? -1,
+    uuid,
+    authUserId: authUser.id,
+    ...(generated ? { generatedSecret: generated } : {}),
+  };
+}
+
 export interface RegisterPlayerOptions {
   name: string;
   email: string;

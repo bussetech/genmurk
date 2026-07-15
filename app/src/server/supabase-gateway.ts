@@ -41,9 +41,12 @@ import type {
   GatewayPlayer,
   LookResult,
   MoveResult,
+  RegisterRequest,
+  RegisterResult,
   SoftcodeBatch,
   WorldGateway,
 } from "./gateway.ts";
+import { registerOpen, RegistrationRefused } from "./auth.ts";
 import type { LockKind } from "./verbs.ts";
 
 export interface SupabaseGatewayConfig {
@@ -116,6 +119,23 @@ export class SupabaseGateway implements WorldGateway {
       roomId: room.id,
       roomName: room.name,
     };
+  }
+
+  async register(req: RegisterRequest): Promise<RegisterResult> {
+    try {
+      const r = await registerOpen(this.cfg, {
+        name: req.name,
+        email: req.email,
+        secret: req.password,
+        ...(req.passphrase ? { passphrase: req.passphrase } : {}),
+      });
+      return { ok: true, playerId: publicId(r.dbref), playerName: req.name };
+    } catch (err) {
+      if (err instanceof RegistrationRefused) {
+        return { ok: false, code: "REGISTRATION_REFUSED", reason: err.message };
+      }
+      return { ok: false, code: "REGISTRATION_FAILED", reason: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   // ---- snapshot + resolution --------------------------------------------

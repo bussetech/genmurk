@@ -86,6 +86,19 @@ export interface SoftcodeBatch {
   apply(outcomes: RunOutcome[]): Promise<{ applied: number; skippedUnbound: number }>;
 }
 
+/** A self-service registration request (GM-R18 open-signup posture). The
+ *  passphrase is present only when the instance is in `passphrase` mode. */
+export interface RegisterRequest {
+  name: string;
+  email: string;
+  password: string;
+  passphrase?: string;
+}
+
+export type RegisterResult =
+  | { ok: true; playerId: string; playerName: string }
+  | { ok: false; code: "REGISTRATION_REFUSED" | "REGISTRATION_FAILED"; reason: string };
+
 export interface WorldGateway {
   /**
    * Bind a session to a player from its HELLO token (GM-R18). On the real
@@ -97,6 +110,12 @@ export interface WorldGateway {
    * (isolation / first-boot / escalation). A bad/unknown token yields null.
    */
   authenticate(token: string): Promise<GatewayPlayer | null>;
+
+  /** Self-service registration (GM-R18 open-signup posture), when the backing
+   *  store supports it. The real stack mints an auth account + a base-tier
+   *  player, gated by the instance registration policy; the stack-free fixture
+   *  has no such store and does not implement it (server reports UNSUPPORTED). */
+  register?(req: RegisterRequest): Promise<RegisterResult>;
 
   /** GM-R12 name matching exposed at the command layer: resolve a typed token
    *  (`me`/`here`/`#dbref`/partial) to an object the actor may see. Dispatch

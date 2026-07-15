@@ -324,14 +324,20 @@ operator to store, never persisted) and binds it — idempotently, and proven by
 an automated fresh-stack login gate. Every credential lives in the provider
 store, read at runtime (GM-R19). *(GENMURK-EPIC1-08; GM-R18/R19.)*
 
-### Signup posture: closed / admin-provisioned in v1; open registration deferred
-New identities enter the world only through **god-provisioned registration**
-(the server plane, via the god-gated `_world_create_player` RPC, mints the
-player object and its auth account together). A text-world may well want **open
-self-serve registration** — but that pulls in email verification, rate
-limiting, captcha, and moderation-of-signup: an abuse surface and an ops tail
-outside the ruled v1 cut. It is deferred to a decision with those controls
-attached (dependency register), not shipped as a default. *(GENMURK-EPIC1-08.)*
+### Signup posture: open registration, gated by an optional instance passphrase
+Registration has **three operator-chosen modes** (`app_settings.registration_mode`,
+set by the god-only `world_set_registration`): **closed** (god-provisioned
+only), **open** (anyone self-registers), and **passphrase** (anyone who presents
+the one instance-wide passphrase). The passphrase is lightweight anti-spam
+gatekeeping — a single shared secret per instance, stored **bcrypt-hashed**
+(pgcrypto, the GM-R18 KDF class), never plaintext, never in the repo, checked
+server-side **before any account is minted** (a wrong passphrase creates
+nothing). The safe default is **closed**; opening the instance is an explicit
+god act. A self-registered player is always **base tier** in Limbo #0 — one
+player per account, no duplicate names — so registration never confers power.
+Heavier abuse controls (email verification, rate limiting, captcha) remain an
+ops-tail concern for hosted exposure (dependency register); the passphrase is
+the v1 gate. *(GENMURK-EPIC1-08.)*
 
 ### Softcode capability attribution: the object and its owner, never the enactor
 Resolving the offline-owner question 07 left to 08: a world-attached program's

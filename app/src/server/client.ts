@@ -64,6 +64,43 @@ async function resolveToken(): Promise<string> {
   return data.session.access_token;
 }
 
+/** Self-service registration (GM-R18 open-signup), when `--register` is passed:
+ *  send a register frame on a throwaway connection, then fall through to the
+ *  normal sign-in + hello with the same credentials. */
+async function registerIfRequested(): Promise<void> {
+  if (process.argv.indexOf("--register") === -1) return;
+  const name = arg("name");
+  const email = arg("email");
+  const password = arg("password") ?? process.env["GENMURK_PASSWORD"];
+  const passphrase = arg("passphrase");
+  if (!name || !email || !password) {
+    console.error("register needs: --register --name <name> --email <you@…> --password <…> [--passphrase <…>]");
+    process.exit(1);
+  }
+  await new Promise<void>((resolve) => {
+    const ws = new WebSocket(url);
+    ws.addEventListener("open", () =>
+      ws.send(JSON.stringify({ type: "register", name, email, password, ...(passphrase ? { passphrase } : {}) })),
+    );
+    ws.addEventListener("message", (ev) => {
+      const msg = JSON.parse(String(ev.data));
+      if (msg.type === "registered") {
+        console.log(`— registered as ${msg.player.name} —`);
+        ws.close();
+        resolve();
+      } else if (msg.type === "error") {
+        console.error(`registration failed: ${msg.code}: ${msg.text}`);
+        process.exit(1);
+      }
+    });
+    ws.addEventListener("error", () => {
+      console.error(`! cannot reach ${url} — is the dev server running?`);
+      process.exit(1);
+    });
+  });
+}
+
+await registerIfRequested();
 const token = await resolveToken();
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });

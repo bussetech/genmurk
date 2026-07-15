@@ -2,7 +2,7 @@
 layout: post
 title: "Who may do what: real authentication and the graded capability model"
 date: 2026-07-15
-description: "The loudly-labelled auth stub is gone. GenMURK now authenticates with a modern password KDF, provisions its god account on first boot from a secret store with nothing shipped in the repo, and enforces the owner→builder→wizard→god ladder server-side on every privileged verb — proven with an escalation matrix, on localhost, end to end. Nothing is hosted or exposed."
+description: "The loudly-labelled auth stub is gone. GenMURK now authenticates with a modern password KDF, provisions its god account on first boot from a secret store with nothing shipped in the repo, enforces the owner→builder→wizard→god ladder server-side on every privileged verb (proven with an escalation matrix), and opens registration behind an optional instance passphrase — all on localhost, end to end. Nothing is hosted or exposed."
 ---
 
 Every text world since the early 90s has had the same quiet question sitting
@@ -56,6 +56,20 @@ for each tier against each privileged verb, an allowed case and a denied case,
 including a builder-owned trigger reaching for power it must not have and being
 refused — twice, once inside the sandboxed engine and again at the database
 wall. All green.
+
+## Coming in the front door
+
+Once you can tell who may do what, you can decide who gets *in.* GenMURK ships
+with three registration modes, and which one is live is the operator's call:
+**closed** (only a god hands out accounts), **open** (anyone may make
+themselves a character), and **passphrase** — open registration behind a single
+shared phrase for the whole instance, the lightweight bouncer a small community
+usually wants. The passphrase is a credential, so it's stored the same way
+passwords are — hashed, never in the clear, never in the repo — and it's
+checked *before* any account is created, so a wrong phrase makes nothing. A
+freshly created player always arrives at the bottom of the ladder, in Limbo,
+owning only itself; registering can never hand you power. The safe default is
+closed, and opening the door is one deliberate command.
 
 ## Still on localhost, still honest
 
