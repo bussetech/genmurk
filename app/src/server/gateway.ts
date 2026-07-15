@@ -19,7 +19,9 @@
 import type { Power, WorldSnapshot, SnapObject, SnapAttr, LockType } from "../world/types.ts";
 import { powerRank, publicId } from "../world/types.ts";
 import { resolveName, type Resolution } from "../world/resolve.ts";
-import { createWorldModel } from "../world/world-api.ts";
+import { createWorldModel, type WorldModel } from "../world/world-api.ts";
+import type { RunOutcome } from "../engine/types.ts";
+import { matchDollarCommand, collectTriggers, type SoftcodeRun, type TriggerKind } from "./softcode.ts";
 import type { LockKind } from "./verbs.ts";
 
 export interface GatewayPlayer {
@@ -62,6 +64,28 @@ export interface LookResult {
   contents: string[];
 }
 
+/** A prepared softcode evaluation batch (GENMURK-EPIC1-07): the runs the
+ *  world found for a typed line or an event, plus the snapshot-backed
+ *  WorldAPI they execute against. The DISPATCHER runs them through the
+ *  sandboxed engine (the one metered branch) — the gateway only prepares. */
+export interface SoftcodeBatch {
+  /** the engine's capability handle for this batch, over one snapshot */
+  world: WorldModel;
+  /** runs in scheduler-submission order (outcomes return parallel to this) */
+  runs: SoftcodeRun[];
+  /** display name for an emitting object id (snapshot names) */
+  nameOf(id: string): string;
+  /**
+   * Apply run i's journaled mutations to the world of record. On the real
+   * stack a run's mutations apply through ITS OWNER's JWT-scoped client (RLS
+   * + RPC checks stay the final wall), so an owner without a bound session
+   * has that run's mutations skipped — counted, never silent (the offline-
+   * owner execution principal is prompt 08's, on the auth/capability track).
+   * The fixture world mutates its snapshot in place, so this only reports.
+   */
+  apply(outcomes: RunOutcome[]): Promise<{ applied: number; skippedUnbound: number }>;
+}
+
 export interface WorldGateway {
   /**
    * AUTH STUB (GENMURK-EPIC1-05) — session-to-player binding by placeholder
@@ -94,16 +118,38 @@ export interface WorldGateway {
   setLock(playerId: string, targetToken: string, lock: LockKind, expr: string): Promise<ActResult>;
   rename(playerId: string, targetToken: string, newName: string): Promise<ActResult>;
 
+  // --- softcode meets the world (GM-R11/R12, GENMURK-EPIC1-07) ---
+  /** Scan the player's neighborhood for a `$`-command matching the typed
+   *  line (built-ins have already declined it — precedence is theirs).
+   *  Null = no match; the dispatcher then reports UNKNOWN_COMMAND. */
+  softcodeCommand(playerId: string, line: string): Promise<SoftcodeBatch | null>;
+  /** Collect the event-trigger runs for a world event the player caused
+   *  (arrive into a room / use of an entered thing). Null = no listeners. */
+  softcodeTriggers(
+    playerId: string,
+    event: { kind: TriggerKind; targetId: string },
+  ): Promise<SoftcodeBatch | null>;
+
   close(): Promise<void>;
 }
 
 // --------------------------------------------------------------- fixture
 
 export interface FixtureSpec {
-  rooms: Record<string, { name: string }>;
+  rooms: Record<string, { name: string; attrs?: Record<string, string> }>;
   /** exit name -> from room id -> to room id */
   exits: { name: string; from: string; to: string }[];
   players: Record<string, { power?: Power; room: string }>;
+  /** seeded things (softcode-world tests): owned by a named player, placed
+   *  in a room (or the owner's inventory when `room` is omitted). This is
+   *  TEST SEEDING, not a command surface — moving things between rooms at
+   *  the command layer is the get/drop verb class, capture-gated. */
+  things?: {
+    name: string;
+    owner: string;
+    room?: string;
+    attrs?: Record<string, string>;
+  }[];
 }
 
 /**
@@ -133,6 +179,13 @@ export class FixtureGateway implements WorldGateway {
         parentId: null,
         power: "player",
       });
+      if (r.attrs) {
+        const bag = new Map<string, SnapAttr>();
+        for (const [k, v] of Object.entries(r.attrs)) {
+          bag.set(k.toUpperCase(), { value: v, visual: false, noInherit: false });
+        }
+        this.snap.attrs.set(id, bag);
+      }
       this.nextDbref = Math.max(this.nextDbref, Number(id.slice(1)) + 1);
     }
     for (const e of spec.exits) {
@@ -163,6 +216,29 @@ export class FixtureGateway implements WorldGateway {
         parentId: null,
         power: p.power ?? "player",
       });
+    }
+    for (const t of spec.things ?? []) {
+      const ownerId = this.nameToId.get(t.owner.toLowerCase());
+      if (!ownerId) throw new Error(`fixture thing "${t.name}": unknown owner ${t.owner}`);
+      const id = this.mint();
+      this.put({
+        id,
+        dbref: Number(id.slice(1)),
+        type: "thing",
+        name: t.name,
+        ownerId,
+        locationId: t.room ?? ownerId,
+        destinationId: null,
+        parentId: null,
+        power: "player",
+      });
+      if (t.attrs) {
+        const bag = new Map<string, SnapAttr>();
+        for (const [k, v] of Object.entries(t.attrs)) {
+          bag.set(k.toUpperCase(), { value: v, visual: false, noInherit: false });
+        }
+        this.snap.attrs.set(id, bag);
+      }
     }
   }
 
@@ -343,6 +419,41 @@ export class FixtureGateway implements WorldGateway {
     return this.withTarget(playerId, targetToken, (t) => {
       this.put({ ...t, name: newName });
     });
+  }
+
+  // ---- softcode meets the world (GENMURK-EPIC1-07) ------------------------
+
+  /** Wrap runs over the fixture's LIVE snapshot: WorldModel writes land in
+   *  this.snap directly, so `apply` only reports (nothing to re-apply). */
+  private batch(runs: SoftcodeRun[]): SoftcodeBatch | null {
+    if (runs.length === 0) return null;
+    return {
+      world: this.world(),
+      runs,
+      nameOf: (id) => this.snap.objects.get(id)?.name ?? id,
+      apply: async (outcomes) => ({
+        applied: outcomes.filter((o) => o.status === "completed" && o.mutations.length > 0).length,
+        skippedUnbound: 0,
+      }),
+    };
+  }
+
+  async softcodeCommand(playerId: string, line: string): Promise<SoftcodeBatch | null> {
+    const match = matchDollarCommand(this.snap, playerId, line);
+    return this.batch(match ? [match] : []);
+  }
+
+  async softcodeTriggers(
+    playerId: string,
+    event: { kind: TriggerKind; targetId: string },
+  ): Promise<SoftcodeBatch | null> {
+    const me = this.snap.objects.get(playerId);
+    if (!me) return null;
+    const runs = collectTriggers(this.snap, event.kind, event.targetId, {
+      id: playerId,
+      name: me.name,
+    });
+    return this.batch(runs);
   }
 
   async close(): Promise<void> {}

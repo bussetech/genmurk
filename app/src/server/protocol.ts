@@ -89,7 +89,11 @@ export interface ErrorMessage {
     | "NO_SUCH_TARGET"
     | "AMBIGUOUS_TARGET"
     | "NO_SUCH_ROOM"
-    | "BUILD_FAILED";
+    | "BUILD_FAILED"
+    // softcode in the world (GENMURK-EPIC1-07): a matched `$`-command's run
+    // was refused by the sandbox — a typed budget/permission refusal is a
+    // VALUE reported to the typist, never a crash (GM-R14)
+    | "SOFTCODE_REFUSED";
   text: string;
 }
 
