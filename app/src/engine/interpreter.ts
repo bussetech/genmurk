@@ -15,8 +15,12 @@ import { parse, type Node } from "./parse.ts";
 import { globMatch } from "./match.ts";
 import type { Budget, WorldAPI, WorldMutation, WorldRefusal } from "./types.js";
 
-/** A follow-on queue entry, buffered transactionally (committed on completion). */
+/** A follow-on queue entry, buffered transactionally (committed on completion).
+ *  `actor` is the principal the entry runs as; `owner` is the budget/fairness
+ *  attribution principal (see RunRequest.owner) — the two differ when object-
+ *  attached softcode runs as its object but bills the object's owner. */
 export interface PendingEntry {
+  actor: string;
   owner: string;
   target: string;
   attr: string;
@@ -28,6 +32,8 @@ const PARSE_CACHE_MAX = 256;
 
 export class Invocation {
   readonly actor: string;
+  /** budget/fairness attribution principal — defaults to the actor */
+  readonly owner: string;
   readonly meter: Meter;
   readonly world: WorldAPI;
   readonly budget: Budget;
@@ -46,8 +52,10 @@ export class Invocation {
     budget: Budget,
     pendingCount: (owner: string) => number,
     args: string[] = [],
+    owner?: string,
   ) {
     this.actor = actor;
+    this.owner = owner ?? actor;
     this.meter = meter;
     this.world = world;
     this.budget = budget;
@@ -396,14 +404,15 @@ export function buildLibrary(instrumentation: boolean): Library {
     return give(inv, `[[${spec}]]${text}[[/]]`);
   });
 
-  // 7. queue
+  // 7. queue — caps key on the attribution OWNER, so an object's follow-ons
+  // bill its owner's queue depth, never the enactor's
   plain("queue.enqueue", (inv, [target = "", attr = "", ...args]) => {
     if (inv.enqueued.length + 1 > inv.budget.enqueuePerRun)
       throw new RefusalSignal("QUEUE_BUDGET_EXCEEDED", "per-run enqueue ceiling");
-    if (inv.pendingCount(inv.actor) + inv.enqueued.length + 1 > inv.budget.queueDepthPerOwner)
+    if (inv.pendingCount(inv.owner) + inv.enqueued.length + 1 > inv.budget.queueDepthPerOwner)
       throw new RefusalSignal("QUEUE_BUDGET_EXCEEDED", "owner queue depth cap");
     const t = resolveTarget(inv, target);
-    inv.enqueued.push({ owner: inv.actor, target: t, attr, args });
+    inv.enqueued.push({ actor: inv.actor, owner: inv.owner, target: t, attr, args });
     return "";
   });
 

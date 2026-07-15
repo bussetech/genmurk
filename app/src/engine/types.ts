@@ -79,6 +79,15 @@ export interface WorldAPI {
 export interface RunRequest {
   /** principal (object id) the program runs as */
   actor: string;
+  /**
+   * budget/fairness attribution principal — the OWNER whose queue-depth cap,
+   * drain quota, and scheduler turn this run draws on (GENMURK-EPIC1-07:
+   * softcode attached to an object runs AS the object but is attributed to
+   * the object's owner, so one owner's fleet of objects cannot multiply its
+   * scheduler share and hostile code can never bill another player).
+   * Defaults to `actor`.
+   */
+  owner?: string;
   /** the softcode text — untrusted input, always */
   program: string;
   /** substitution registers %0..%9 — untrusted input, expanded once (never re-scanned) */
