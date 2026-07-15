@@ -2,7 +2,7 @@
 layout: page
 title: Architecture decisions
 eyebrow: The build
-description: "GenMURK's architecture decision log, in public — the settled calls (Supabase, Workers-class compute, an apex PROD domain, and building our own softcode engine) and the one still open: the themed creative direction."
+description: "GenMURK's architecture decision log, in public — the settled calls (Supabase, Workers-class compute, the WebSocket presence transport, an apex PROD domain, and building our own softcode engine) and the one still open: the themed creative direction."
 permalink: /decisions/
 ---
 
@@ -59,8 +59,52 @@ made, including where GM-R5..R10 were silent:
 The application runs on a **Workers-class runtime** (Cloudflare Workers) — the
 studio's provider family for hosted apps — **not** on GitHub Pages. Pages hosts
 *this documentation site only*. Real-time presence and push delivery (GM-R1 /
-GM-R4) ride a sanctioned real-time transport (WebSocket / Supabase Realtime /
-Durable-Object-class coordination): room = channel, movement = channel switch.
+GM-R4) ride the settled presence transport (next entry): room = channel,
+movement = channel switch.
+
+### The presence transport: WebSocket, one writer per room
+Real-time presence and speech (GM-R1..R4) ride **WebSocket with a
+single-writer-per-room coordinator** — in PROD a Durable-Object-class
+instance on the Workers-class runtime; in dev the identical coordinator class
+in-process under a localhost-only Node harness. This settles the one
+transport choice left open above (UAT risk R7), decided on four criteria:
+
+- **Ordering (GM-R4):** every room-scoped event — speech, presence,
+  broadcast, softcode output — passes through one synchronous fan-out choke
+  point that assigns the room's monotonic sequence and delivers in the same
+  pass; per-connection delivery is FIFO. All observers of a room see the
+  identical order **by construction, not reconciliation** — proven by an
+  automated test racing concurrent speakers on separate sockets, 50 rounds
+  per CI run, plus movement interleaved with speech (one ordering domain).
+  Order *across* rooms is deliberately undefined; that per-room domain is
+  what lets one-coordinator-per-room sharding scale PROD later without
+  changing the guarantee.
+- **Lifecycle:** Durable-Object-class actors are the sanctioned home for
+  long-lived WebSocket state on the chosen runtime; their single-threaded
+  execution model is exactly the property the ordering guarantee rests on.
+- **Cost:** dev-tier cost is zero (localhost harness, nothing hosted — the
+  GM-R14 gate stands); the PROD implication (Durable Objects need the
+  Workers paid plan; coordinator region pinning) is registered as an EPIC5
+  provisioning note, not built here.
+- **The sandbox boundary (GM-R14):** the transport must not become a second
+  capability surface for softcode. Server-owned WebSocket means clients hold
+  no publish primitive, and softcode's only door is `WorldAPI.emit` —
+  buffered during the run, routed room-scoped by the server after it. The
+  engine never holds a socket or channel; escape is absent, not denied, and
+  a boundary test asserts it.
+
+**Rejected: Supabase Realtime** — no cross-publisher total order per channel
+(GM-R4 would live in a reconciliation layer, i.e. in hope); its channels are
+a client-addressable publish primitive (a second capability surface); and
+the idiomatic client-direct shape takes the server plane out of the delivery
+path. **Rejected: hybrid** (Realtime fan-out reconciled against the durable
+event log) — two delivery paths that can disagree are a split brain, and the
+reconciliation logic *is* a coordinator; build the coordinator, skip the
+second path. The `world_events` table stays the **durable** presence record
+(the audited movement RPC writes it; wizard-auditable, replay-capable);
+live delivery does not tail it, and ephemeral speech is not persisted in v1
+(privacy- and cost-conservative — directed messages especially). Engineering
+record: `app/docs/presence-transport.md`. *(GENMURK-EPIC1-05.)*
 
 ### An apex PROD domain on its own DNS zone
 The running app claims its own registered apex, **`genmurk.com`**, separate from
