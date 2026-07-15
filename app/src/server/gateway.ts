@@ -88,10 +88,13 @@ export interface SoftcodeBatch {
 
 export interface WorldGateway {
   /**
-   * AUTH STUB (GENMURK-EPIC1-05) — session-to-player binding by placeholder
-   * token, `stub:<PlayerName>`. This is NOT authentication: no credential is
-   * verified at this layer. Prompt 08 (GM-R15/GM-R18: modern KDF, no default
-   * credentials) replaces the token scheme; the interface stays.
+   * Bind a session to a player from its HELLO token (GM-R18). On the real
+   * stack (supabase-gateway.ts) the token is a VERIFIED Supabase Auth JWT and
+   * this IS authentication; the un-credentialed 05 stub is gone. The in-memory
+   * FixtureGateway below issues opaque test-principal tokens (`tokenFor`) for
+   * the stack-free transport/dispatch tests — it has no credentials to verify
+   * and never claims to; the real auth path is proven by the live-stack gates
+   * (isolation / first-boot / escalation). A bad/unknown token yields null.
    */
   authenticate(token: string): Promise<GatewayPlayer | null>;
 
@@ -134,6 +137,16 @@ export interface WorldGateway {
 }
 
 // --------------------------------------------------------------- fixture
+
+/** Prefix for FixtureGateway test-principal tokens — a labelled, non-secret
+ *  handle for stack-free transport tests, never a credential. */
+export const FIXTURE_PRINCIPAL_PREFIX = "fixture-principal:";
+
+/** The wire token a stack-free test presents for `name` (mirrors
+ *  FixtureGateway.tokenFor, for callers that only hold the player name). */
+export function fixturePrincipalToken(name: string): string {
+  return `${FIXTURE_PRINCIPAL_PREFIX}${name}`;
+}
 
 export interface FixtureSpec {
   rooms: Record<string, { name: string; attrs?: Record<string, string> }>;
@@ -270,9 +283,17 @@ export class FixtureGateway implements WorldGateway {
 
   // ---- WorldGateway ------------------------------------------------------
 
+  /** The test-principal token for a fixture player — the handle the stack-free
+   *  transport tests present at HELLO. Not a credential (there is no world of
+   *  record here to hold one), and deliberately NOT the retired `stub:` scheme;
+   *  the real auth path is proven only on the live stack. */
+  tokenFor(name: string): string {
+    return fixturePrincipalToken(name);
+  }
+
   async authenticate(token: string): Promise<GatewayPlayer | null> {
-    if (!token.startsWith("stub:")) return null;
-    const name = token.slice("stub:".length);
+    if (!token.startsWith(FIXTURE_PRINCIPAL_PREFIX)) return null;
+    const name = token.slice(FIXTURE_PRINCIPAL_PREFIX.length);
     const id = this.nameToId.get(name.toLowerCase());
     if (!id) return null;
     const p = this.snap.objects.get(id)!;

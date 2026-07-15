@@ -26,7 +26,7 @@
 // test/server/sandbox-boundary.test.ts.
 
 import type { Power } from "../world/types.ts";
-import { powerRank } from "../world/types.ts";
+import { can } from "./capability.ts";
 import type { RoomEventKind, ServerMessage } from "./protocol.ts";
 
 export interface SessionSink {
@@ -111,15 +111,16 @@ export class RoomCoordinator {
     return delivered;
   }
 
-  /** Privileged broadcast (GM-R3), gated on the capability tier — the same
-   *  wizard threshold the world model uses. This check is the capability
-   *  model's HOOK; prompt 08 replaces the stub session binding that feeds
-   *  `power`, not this gate. Delivered per-room so each room's stream stays
+  /** Privileged broadcast (GM-R3), gated on the capability tier through the
+   *  transport-plane authorization seam (capability.ts). GENMURK-EPIC1-08:
+   *  the gate is unchanged — what changed is that `s.power` is now fed by a
+   *  VERIFIED session (a real auth principal, supabase-gateway.ts), not the
+   *  retired stub token. Delivered per-room so each room's stream stays
    *  totally ordered. */
   announce(sessionId: string, text: string): "ok" | "denied" {
     const s = this.sessions.get(sessionId);
     if (!s) return "denied";
-    if (powerRank(s.power) < powerRank("wizard")) return "denied";
+    if (!can(s.power, "broadcast")) return "denied";
     const rooms = new Set<string>();
     for (const t of this.sessions.values()) rooms.add(t.roomId);
     for (const room of rooms) {

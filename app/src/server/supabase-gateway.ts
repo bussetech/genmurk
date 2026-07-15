@@ -17,11 +17,15 @@
 // authority underneath. A fresh snapshot per command is the dev-tier simple
 // choice (a just-dug room is visible to the next command); 08 may cache.
 //
-// AUTH STUB (GENMURK-EPIC1-05), loudly: `stub:<PlayerName>` resolves to the
-// seeded synthetic auth user `<name>@genmurk.invalid` with the shared
-// synthetic password — the SAME synthetic principals the isolation proof
-// creates (test/world/isolation.test.ts). It verifies no player credential
-// and MUST NOT survive prompt 08 (GM-R15/GM-R18).
+// AUTHENTICATION (GENMURK-EPIC1-08, GM-R18): the HELLO token is a VERIFIED
+// Supabase Auth access-token JWT. The player authenticates out of band against
+// Supabase Auth (the sanctioned argon2/bcrypt-class KDF, ADR-0048) and presents
+// the resulting JWT; this gateway VERIFIES it (`auth.getUser`) and binds the
+// session to the player object the auth principal is linked to (objects.
+// auth_user_id, the RLS bridge). The server never handles a password, and the
+// 05 stub — the un-credentialed `stub:<name>` name binding — is gone. A
+// forged, expired, or unbound token yields no session (null), and the actor
+// client is scoped by the SAME JWT so RLS + the RPC role checks stay the wall.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Power, WorldSnapshot } from "../world/types.ts";
@@ -41,9 +45,6 @@ import type {
   WorldGateway,
 } from "./gateway.ts";
 import type { LockKind } from "./verbs.ts";
-
-const STUB_PASSWORD = "synthetic-password-1234"; // isolation-proof synthetic, not a secret
-const STUB_EMAIL_DOMAIN = "genmurk.invalid";
 
 export interface SupabaseGatewayConfig {
   url: string;
@@ -78,29 +79,30 @@ export class SupabaseGateway implements WorldGateway {
   }
 
   async authenticate(token: string): Promise<GatewayPlayer | null> {
-    if (!token.startsWith("stub:")) return null;
-    const name = token.slice("stub:".length);
+    // GM-R18: the token is a Supabase Auth access-token JWT. VERIFY it — a
+    // forged/expired token has no user, an unbound auth account has no player.
+    if (!token) return null;
+    const { data: userData, error: userErr } = await this.svc.auth.getUser(token);
+    if (userErr || !userData.user) return null;
+    const authUserId = userData.user.id;
 
-    // AUTH STUB: sign in the synthetic principal for this player name.
-    const email = `${name.toLowerCase()}@${STUB_EMAIL_DOMAIN}`;
-    const anon = createClient(this.cfg.url, this.cfg.anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data, error } = await anon.auth.signInWithPassword({ email, password: STUB_PASSWORD });
-    if (error || !data.session) return null;
-    const actor = createClient(this.cfg.url, this.cfg.anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { Authorization: `Bearer ${data.session.access_token}` } },
-    });
-
+    // Resolve the player object this verified principal is linked to. The
+    // actor client below carries the SAME JWT, so RLS is the wall on its reads
+    // and its RPC writes — the service-role read here is only to shape the
+    // welcome frame (name/room), never to act on the player's behalf.
     const { data: row, error: rowErr } = await this.svc
       .from("objects")
       .select("id, dbref, name, power, location_id")
       .eq("type", "player")
-      .eq("name", name)
+      .eq("auth_user_id", authUserId)
       .is("destroyed_at", null)
       .single();
     if (rowErr || !row || !row.location_id) return null;
+
+    const actor = createClient(this.cfg.url, this.cfg.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
 
     const room = await this.roomOf(row.location_id);
     if (!room) return null;

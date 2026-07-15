@@ -19,9 +19,12 @@ export type RoomEventKind = "arrive" | "depart" | "say" | "emote" | "announce" |
 
 // ---------------------------------------------------------- client → server
 
-/** First frame on a connection. AUTH STUB (GENMURK-EPIC1-05): the token is a
- *  placeholder binding (`stub:<PlayerName>`) until prompt 08's real auth
- *  (GM-R15/GM-R18) replaces it. Loudly not a credential. */
+/** First frame on a connection. The token is a VERIFIED credential
+ *  (GENMURK-EPIC1-08, GM-R18): a Supabase Auth access-token JWT the client
+ *  obtained by authenticating out of band. The server verifies it and binds
+ *  the session to the linked player (supabase-gateway.ts); the 05 stub token
+ *  is gone. (Stack-free transport tests present an opaque fixture-principal
+ *  token instead — no world of record, no credential to verify.) */
 export interface HelloMessage {
   type: "hello";
   token: string;

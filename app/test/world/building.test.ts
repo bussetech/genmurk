@@ -19,11 +19,12 @@ import { SupabaseGateway } from "../../src/server/supabase-gateway.ts";
 import { dispatch } from "../../src/server/dispatch.ts";
 import { createEngine } from "../../src/engine/engine.ts";
 import type { ServerMessage, RoomEventMessage } from "../../src/server/protocol.ts";
+import { provisionCast, type Provisioned, type StackConfig } from "./auth-helpers.ts";
 
 const url = process.env["SUPABASE_URL"] ?? "http://127.0.0.1:54541";
 const anonKey = process.env["SUPABASE_ANON_KEY"] ?? "";
 const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
-const PASSWORD = "synthetic-password-1234";
+const cfg: StackConfig = { url, anonKey, serviceRoleKey: serviceKey };
 
 // the scenario's cast, from the seeded world (supabase/seed.sql)
 const CAST = [
@@ -37,6 +38,7 @@ function service(): SupabaseClient {
 
 let gateway: SupabaseGateway;
 let coordinator: RoomCoordinator;
+let seats: Record<string, Provisioned>;
 const engine = createEngine();
 
 interface Seat {
@@ -53,8 +55,9 @@ interface Seat {
 let nextSession = 0;
 async function connect(name: string): Promise<Seat> {
   const sessionId = `s${++nextSession}`;
-  const player = await gateway.authenticate(`stub:${name}`);
-  assert.ok(player, `authenticate ${name} (stack seeded + auth users linked?)`);
+  // authenticate exactly as the wire does: a verified access-token JWT
+  const player = await gateway.authenticate(seats[name]!.token);
+  assert.ok(player, `authenticate ${name} (stack seeded + auth users provisioned?)`);
   const received: ServerMessage[] = [];
   const send = (m: ServerMessage): void => {
     received.push(m);
@@ -86,24 +89,7 @@ async function connect(name: string): Promise<Seat> {
 
 before(async () => {
   assert.ok(anonKey && serviceKey, "set SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY (from `supabase start`)");
-  const admin = service();
-  const { data: existing } = await admin.auth.admin.listUsers({ perPage: 200 });
-  for (const p of CAST) {
-    const found = existing?.users.find((u) => u.email === p.email);
-    if (found) await admin.auth.admin.deleteUser(found.id);
-    const { data, error } = await admin.auth.admin.createUser({
-      email: p.email,
-      password: PASSWORD,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser ${p.email}: ${error?.message}`);
-    const { error: linkErr } = await admin
-      .from("objects")
-      .update({ auth_user_id: data.user.id })
-      .eq("name", p.name)
-      .eq("type", "player");
-    if (linkErr) throw new Error(`link ${p.name}: ${linkErr.message}`);
-  }
+  seats = await provisionCast(cfg, CAST);
   gateway = new SupabaseGateway({ url, anonKey, serviceRoleKey: serviceKey });
   coordinator = new RoomCoordinator();
 }, { timeout: 60_000 });

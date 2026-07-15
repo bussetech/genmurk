@@ -4,7 +4,7 @@
 // actual server + coordinator + protocol path, not a mock of it.
 
 import { startServer, type ServerHandle } from "../../src/server/server.ts";
-import { FixtureGateway } from "../../src/server/gateway.ts";
+import { FixtureGateway, fixturePrincipalToken } from "../../src/server/gateway.ts";
 import type { ServerMessage, RoomEventMessage } from "../../src/server/protocol.ts";
 
 export const TOWN = "#10";
@@ -52,7 +52,7 @@ export class TestClient {
       ws.addEventListener("open", () => resolve(), { once: true });
       ws.addEventListener("error", () => reject(new Error("connect failed")), { once: true });
     });
-    ws.send(JSON.stringify({ type: "hello", token: `stub:${playerName}` }));
+    ws.send(JSON.stringify({ type: "hello", token: fixturePrincipalToken(playerName) }));
     await client.waitFor((m) => m.type === "welcome" || m.type === "error");
     const last = client.received[client.received.length - 1]!;
     if (last.type === "error") throw new Error(`hello failed: ${last.text}`);

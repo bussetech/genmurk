@@ -16,11 +16,15 @@
     "proof:realworld": "GENMURK_REAL_WORLD=1 node test/harness/harness.ts",
     "conformance": "node gm-r22/conformance.ts",
     "bench": "node test/bench.ts",
-    "test": "npm run typecheck && npm run tripwire && npm run unit && npm run conformance && npm run proof && npm run proof:realworld",
+    "leak-check": "bash scripts/leak-check.sh",
+    "first-boot": "node scripts/first-boot.ts",
+    "test": "npm run leak-check && npm run typecheck && npm run tripwire && npm run unit && npm run conformance && npm run proof && npm run proof:realworld",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
     "test:isolation": "node --test test/world/isolation.test.ts",
-    "test:building": "node --test test/world/building.test.ts"
+    "test:building": "node --test test/world/building.test.ts",
+    "test:escalation": "node --test test/world/escalation.test.ts",
+    "test:first-boot": "node --test test/world/first-boot.test.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
