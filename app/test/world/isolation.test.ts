@@ -142,8 +142,9 @@ test("Merlin (wizard) sees the whole world, including the destroyed lamp and the
   assert.equal(await count(db, "object_locks"), 1);
   assert.ok((await count(db, "object_audit")) > 0, "wizard reads the audit trail");
   // recovery_window_seconds, default_quota (04) + registration_mode,
-  // registration_passphrase_hash (08 open-registration migration)
-  assert.equal(await count(db, "app_settings"), 4);
+  // registration_passphrase_hash (08 open-registration) + mail_inbox_max,
+  // silence_default_minutes (09 faithful layer)
+  assert.equal(await count(db, "app_settings"), 6);
 });
 
 test("God (god tier) also sees the whole world", async () => {
