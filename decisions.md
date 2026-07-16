@@ -360,6 +360,87 @@ dropping a write loudly beats forging authority for it. A durable offline-owner
 execution principal is deferred (dependency register). *(GENMURK-EPIC1-08;
 GM-R15.)*
 
+### Lock expressions: full ruled scope, bounded by construction (GM-R8)
+The lock grammar reaches its full ruled scope with an **ownership predicate**
+alongside the attribute one: `owner(#N)` passes when the actor *owns* object #N
+— a relationship a `#N` key (you *are* or *carry* it) cannot state. The grammar
+stays a **deliberately-bounded safe subset** (booleans, `#N`, `owner(#N)`,
+`ATTR:glob`), and evaluation itself is now bounded three ways — source length,
+nesting depth, and a per-evaluation step budget — so a hostile stored lock
+terminates fast and **fails closed**; the glob compiler is backtrack-free.
+Locks gate **use, enter, and pickup**, each per action. This satisfies GM-R8's
+"attribute/ownership predicates" without giving softcode the engine's fuel
+meter — a transport-plane evaluation that is safe by its own construction,
+proven against a hostile-expression fixture pack. *(GENMURK-EPIC1-09;
+`app/src/world/lock.ts`.)*
+
+### Take & drop: the pickup lock's action, app-gated like exit locks (GM-R6/R8)
+Picking a thing up (`get`) and setting it down (`drop`) are the actions the
+pickup lock exists to gate. The pickup lock is evaluated on the **world-API
+before the move** — the same discipline 06 set for exit `use` locks — and the
+audited `world_get`/`world_drop` RPCs hold the **structural wall**: you may take
+only a live thing co-located in your own room into your own hands, and drop only
+what you hold into the room you stand in. An **unlocked** thing is takeable by
+anyone co-located (the reference default-open). Defense-in-depth DB-side lock
+re-evaluation stays a documented later step (dependency register), exactly as
+for exit locks. *(GENMURK-EPIC1-09.)*
+
+### Recoverable destruction UX: honest window, recover by number (GM-R9)
+`destroy` soft-destroys a controlled object and **states the recovery window**
+("recoverable with `undestroy #N` for N days"), so the user always knows how
+long they have. `undestroy` takes a **`#dbref`, not a name**: a destroyed
+object has left the actor's snapshot (RLS hides the recovery bin from
+non-wizards), so naming a thing you can no longer see would be a fiction — the
+number the destroy confirmation printed is the honest handle. The window and
+the god/limbo guards live in the 04 RPCs, unchanged. *(GENMURK-EPIC1-09.)*
+
+### In-world mail: durable, quota-bounded, moderation-visible (GM-R17)
+Player-to-player mail is **durable until the recipient deletes it** (a soft
+delete; no auto-expiry in v1 — a privacy/retention call recorded here, revisit
+for hosted exposure). It is **quota-aware** — a recipient's live inbox is
+capped (`app_settings.mail_inbox_max`), and sending to a full inbox refuses —
+and **moderation-visible**: the mail RLS policy lets a wizard/god read any
+message (the sender and recipient otherwise), while the **body is never
+journaled** (the audit records only who mailed whom, and the subject).
+Addressing is **global** by player name or `#dbref` (mail crosses rooms, unlike
+neighborhood-scoped building targets). A **silenced** player cannot send mail.
+v1 mail is **body-only from the command line**; the reference's subject-line
+syntax is a capture question (the RPC carries a subject for later).
+*(GENMURK-EPIC1-09.)*
+
+### Moderation: audited, tier-gated, and it only reaches down (GM-R16)
+Wizard+ moderation is **warn / boot / silence / unsilence**, and every act is
+**journaled to `object_audit`** (who, what, when, why) — the same audit trail
+the world mutations use, asserted by the v1 slice. Three guards make the tooling
+un-abusable: **God #1 is never a target**, a wizard **may not moderate an
+equal-or-higher tier** (only a god reaches a wizard), and the gate is the one
+capability seam (`_world_require_power`). **Silence** is DB-durable
+(`objects.silenced_until`) *and* applied to live sessions immediately, and gates
+**speech and mail**; **boot** is a transport disconnect — the RPC records the
+act durably, the coordinator performs the drop (firing departure presence).
+*(GENMURK-EPIC1-09; the safe-behavior-wins divergences are on `/compatibility/`.)*
+
+### The v1 playable vertical slice is the epic's integration acceptance
+The whole epic is proven by **one scripted multi-client scenario** on the full
+local stack — register/login → walk & talk → build & lock → a `$`-command
+another player triggers → page & mail → a wizard moderates → destroy/undestroy —
+green end to end through Postgres, with the **moderation audit trail asserted**.
+It runs as the **`v1-slice` CI job** (Supabase stood up on the runner, the same
+`setup-cli` discipline as the isolation gate), and localhost-only: the stack
+lives and dies on the runner, nothing is hosted. The adversarial and property
+suites, the isolation/building/escalation/first-boot/registration gates, and the
+conformance harness all stay green alongside it — the gates never came off.
+*(GENMURK-EPIC1-09; `app/test/world/slice.test.ts`.)*
+
+### GM-R22 compatibility: full verb surface swept, capture still the hard gate
+The conformance harness now covers the **entire player-facing verb surface**
+(25/25 entries, every one provisional and traced to a GM-Rn requirement), with
+the capture-pending banner loud and five recorded divergences (all GM-R14
+safe-behavior-wins). **The canonical TinyMUSE/MicroMUSE capture (genmurk#9) has
+still not landed**, so real reference coverage cannot be measured and **v1
+cannot claim the STEERCO minimum bar**; #9 is escalated to `needs-human`, and
+the epic close (10) must state this plainly. *(GENMURK-EPIC1-09.)*
+
 ## Open
 
 ### Themed creative direction
