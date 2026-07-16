@@ -100,6 +100,9 @@ export async function startServer(
           roomId: player.roomId,
           roomName: player.roomName,
           sink: { send },
+          silencedUntil: player.silencedUntil,
+          // GM-R16: lets a wizard's `boot` drop this transport session
+          disconnect: () => socket.close(),
         });
         joined = true;
         send({

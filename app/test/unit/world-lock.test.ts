@@ -11,11 +11,13 @@ function lw(
   actorId: string,
   carrying: string[],
   attrs: Record<string, string>,
+  owners: Record<string, string> = {},
 ): LockWorld {
   return {
     actorId,
     carrying: () => carrying,
     attr: (_id, name) => attrs[name.toUpperCase()] ?? "",
+    ownerOf: (id) => owners[id] ?? null,
   };
 }
 

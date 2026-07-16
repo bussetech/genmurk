@@ -38,11 +38,19 @@ import type {
   ActResult,
   BuildErrorCode,
   BuildResult,
+  DestroyResult,
+  FaithfulErrorCode,
   GatewayPlayer,
   LookResult,
+  MailDeleteResult,
+  MailReadResult,
+  MailSendResult,
+  MailSummary,
+  ModerationResult,
   MoveResult,
   RegisterRequest,
   RegisterResult,
+  SilenceResult,
   SoftcodeBatch,
   WorldGateway,
 } from "./gateway.ts";
@@ -95,7 +103,7 @@ export class SupabaseGateway implements WorldGateway {
     // welcome frame (name/room), never to act on the player's behalf.
     const { data: row, error: rowErr } = await this.svc
       .from("objects")
-      .select("id, dbref, name, power, location_id")
+      .select("id, dbref, name, power, location_id, silenced_until")
       .eq("type", "player")
       .eq("auth_user_id", authUserId)
       .is("destroyed_at", null)
@@ -118,6 +126,7 @@ export class SupabaseGateway implements WorldGateway {
       power: row.power as Power,
       roomId: room.id,
       roomName: room.name,
+      silencedUntil: (row.silenced_until as string | null) ?? null,
     };
   }
 
@@ -309,6 +318,249 @@ export class SupabaseGateway implements WorldGateway {
     );
   }
 
+  // ---- containment: take / drop (GM-R6 + pickup lock GM-R8) ---------------
+
+  async get(playerId: string, targetToken: string): Promise<ActResult> {
+    const b = this.bound.get(playerId);
+    const l = await this.loadFor(playerId);
+    if (!b || !l) return { ok: false, code: "BUILD_FAILED", reason: "session not bound" };
+    const found = this.resolveWithUuid(l, targetToken);
+    if ("fail" in found) return found.fail;
+    const obj = l.snapshot.objects.get(found.id);
+    const me = l.snapshot.objects.get(playerId);
+    if (!obj || obj.type !== "thing") {
+      return { ok: false, code: "NO_SUCH_TARGET", reason: `you can't take "${targetToken}"` };
+    }
+    if (obj.locationId !== me?.locationId) {
+      return { ok: false, code: "NO_SUCH_TARGET", reason: `${obj.name} is not here to take` };
+    }
+    // GM-R8: the thing's pickup lock gates taking it (evaluated in-snapshot,
+    // the engine's evaluator; the RPC holds the structural wall underneath).
+    if (!l.world.canPickup(playerId, obj.id)) {
+      return { ok: false, code: "LOCKED", reason: `you can't pick up ${obj.name}` };
+    }
+    const { error } = await b.actor.rpc("world_get", { p_thing: found.uuid });
+    if (error) return { ok: false, code: classify(error.message), reason: error.message };
+    return { ok: true, targetId: found.id, targetName: obj.name };
+  }
+
+  async drop(playerId: string, targetToken: string): Promise<ActResult> {
+    const b = this.bound.get(playerId);
+    const l = await this.loadFor(playerId);
+    if (!b || !l) return { ok: false, code: "BUILD_FAILED", reason: "session not bound" };
+    const found = this.resolveWithUuid(l, targetToken);
+    if ("fail" in found) return found.fail;
+    const obj = l.snapshot.objects.get(found.id);
+    if (!obj || obj.type !== "thing" || obj.locationId !== playerId) {
+      return { ok: false, code: "NO_SUCH_TARGET", reason: `you aren't holding "${targetToken}"` };
+    }
+    const { error } = await b.actor.rpc("world_drop", { p_thing: found.uuid });
+    if (error) return { ok: false, code: classify(error.message), reason: error.message };
+    return { ok: true, targetId: found.id, targetName: obj.name };
+  }
+
+  // ---- recoverable destruction (GM-R9) ------------------------------------
+
+  async destroy(playerId: string, targetToken: string): Promise<DestroyResult> {
+    const b = this.bound.get(playerId);
+    const l = await this.loadFor(playerId);
+    if (!b || !l) return { ok: false, code: "BUILD_FAILED", reason: "session not bound" };
+    const found = this.resolveWithUuid(l, targetToken);
+    if ("fail" in found) return found.fail;
+    const name = l.snapshot.objects.get(found.id)?.name ?? found.id;
+    const { error } = await b.actor.rpc("world_destroy", { p_target: found.uuid });
+    if (error) return { ok: false, code: classifyFaithful(error.message), reason: error.message };
+    return { ok: true, targetId: found.id, targetName: name, recoverySeconds: await this.recoveryWindowSeconds() };
+  }
+
+  async recover(playerId: string, dbrefToken: string): Promise<ActResult> {
+    const b = this.bound.get(playerId);
+    if (!b) return { ok: false, code: "BUILD_FAILED", reason: "session not bound" };
+    const m = /^#(\d+)$/.exec(dbrefToken.trim());
+    if (!m) return { ok: false, code: "NO_SUCH_TARGET", reason: "recover takes a #dbref" };
+    // destroyed objects have left the snapshot; look the dbref up directly
+    // (service read), then recover AS THE ACTOR so the RPC's control check is
+    // the wall.
+    const { data: row } = await this.svc
+      .from("objects")
+      .select("id, name")
+      .eq("dbref", Number(m[1]))
+      .single();
+    if (!row) return { ok: false, code: "NO_SUCH_TARGET", reason: `no object #${m[1]}` };
+    const { error } = await b.actor.rpc("world_recover", { p_target: row.id as string });
+    if (error) return { ok: false, code: classify(error.message), reason: error.message };
+    return { ok: true, targetId: dbrefToken.trim(), targetName: row.name as string };
+  }
+
+  // ---- in-world mail (GM-R17) ---------------------------------------------
+
+  async mailSend(playerId: string, recipientToken: string, subject: string, body: string): Promise<MailSendResult> {
+    const b = this.bound.get(playerId);
+    if (!b) return { ok: false, code: "BUILD_FAILED", reason: "session not bound" };
+    const to = await this.resolvePlayerUuid(playerId, recipientToken);
+    if (!to) return { ok: false, code: "NO_SUCH_PLAYER", reason: `no player "${recipientToken}"` };
+    const { error } = await b.actor.rpc("world_mail_send", { p_to: to.uuid, p_subject: subject, p_body: body });
+    if (error) return { ok: false, code: classifyFaithful(error.message), reason: error.message };
+    return { ok: true, recipientName: to.name };
+  }
+
+  async mailInbox(playerId: string): Promise<MailSummary[]> {
+    const b = this.bound.get(playerId);
+    if (!b) return [];
+    const rows = await this.rawInbox(b.uuid);
+    const senderIds = [...new Set(rows.map((m) => m.sender_id))];
+    const nameOf = new Map<string, string>();
+    if (senderIds.length) {
+      const { data } = await this.svc.from("objects").select("id, name").in("id", senderIds);
+      for (const s of data ?? []) nameOf.set(s.id as string, s.name as string);
+    }
+    return rows.map((m, i) => ({
+      index: i + 1,
+      id: m.id,
+      fromName: nameOf.get(m.sender_id) ?? "?",
+      subject: m.subject,
+      sentAt: m.sent_at,
+      unread: m.read_at === null,
+    }));
+  }
+
+  async mailRead(playerId: string, index: number): Promise<MailReadResult> {
+    const b = this.bound.get(playerId);
+    if (!b) return { ok: false, code: "BUILD_FAILED", reason: "session not bound" };
+    const rows = await this.rawInbox(b.uuid);
+    const m = rows[index - 1];
+    if (!m) return { ok: false, code: "NO_SUCH_MAIL", reason: `no message ${index} in your inbox` };
+    await b.actor.rpc("world_mail_mark_read", { p_mail: m.id }); // mark read as the recipient
+    const { data: sender } = await this.svc.from("objects").select("name").eq("id", m.sender_id).single();
+    return {
+      ok: true,
+      fromName: (sender?.name as string) ?? "?",
+      subject: m.subject,
+      body: m.body,
+      sentAt: m.sent_at,
+    };
+  }
+
+  async mailDelete(playerId: string, index: number): Promise<MailDeleteResult> {
+    const b = this.bound.get(playerId);
+    if (!b) return { ok: false, code: "BUILD_FAILED", reason: "session not bound" };
+    const rows = await this.rawInbox(b.uuid);
+    const m = rows[index - 1];
+    if (!m) return { ok: false, code: "NO_SUCH_MAIL", reason: `no message ${index} in your inbox` };
+    const { error } = await b.actor.rpc("world_mail_delete", { p_mail: m.id });
+    if (error) return { ok: false, code: classifyFaithful(error.message), reason: error.message };
+    return { ok: true };
+  }
+
+  // ---- moderation (GM-R16) ------------------------------------------------
+
+  async warn(playerId: string, targetToken: string, reason: string): Promise<ModerationResult> {
+    return this.moderate(playerId, targetToken, (actor, t) =>
+      actor.rpc("world_warn", { p_target: t.uuid, p_reason: reason }),
+    );
+  }
+
+  async boot(playerId: string, targetToken: string, reason: string): Promise<ModerationResult> {
+    return this.moderate(playerId, targetToken, (actor, t) =>
+      actor.rpc("world_boot", { p_target: t.uuid, p_reason: reason }),
+    );
+  }
+
+  async unsilence(playerId: string, targetToken: string): Promise<ModerationResult> {
+    return this.moderate(playerId, targetToken, (actor, t) =>
+      actor.rpc("world_unsilence", { p_target: t.uuid }),
+    );
+  }
+
+  async silence(playerId: string, targetToken: string, minutes: number | null): Promise<SilenceResult> {
+    const b = this.bound.get(playerId);
+    if (!b) return { ok: false, code: "MODERATION_REFUSED", reason: "session not bound" };
+    const t = await this.resolvePlayerUuid(playerId, targetToken);
+    if (!t) return { ok: false, code: "NO_SUCH_PLAYER", reason: `no player "${targetToken}"` };
+    const { data, error } = await b.actor.rpc("world_silence", {
+      p_target: t.uuid,
+      p_minutes: minutes,
+      p_reason: null,
+    });
+    if (error) return { ok: false, code: classifyFaithful(error.message), reason: error.message };
+    return { ok: true, targetPlayerId: publicId(t.dbref), targetName: t.name, until: data as string };
+  }
+
+  // ---- faithful-layer helpers --------------------------------------------
+
+  private async recoveryWindowSeconds(): Promise<number> {
+    const { data } = await this.svc.from("app_settings").select("value").eq("key", "recovery_window_seconds").single();
+    const v = data?.value as unknown;
+    const n = typeof v === "string" ? Number(v) : Number(v);
+    return Number.isFinite(n) ? n : 604800;
+  }
+
+  /** Resolve a player anywhere in the world by `me` / `#dbref` / exact name
+   *  (case-insensitive) — mail and moderation address players globally, unlike
+   *  the neighborhood-scoped `resolveName` used for co-located targets. */
+  private async resolvePlayerUuid(
+    playerId: string,
+    token: string,
+  ): Promise<{ uuid: string; name: string; dbref: number } | null> {
+    const t = token.trim();
+    if (t.toLowerCase() === "me") {
+      const b = this.bound.get(playerId);
+      if (!b) return null;
+      return { uuid: b.uuid, name: "", dbref: b.dbref };
+    }
+    const { data } = await this.svc
+      .from("objects")
+      .select("id, name, dbref")
+      .eq("type", "player")
+      .is("destroyed_at", null);
+    const rows = (data ?? []) as { id: string; name: string; dbref: number }[];
+    const m = /^#(\d+)$/.exec(t);
+    const matches = m
+      ? rows.filter((r) => r.dbref === Number(m[1]))
+      : rows.filter((r) => r.name.toLowerCase() === t.toLowerCase());
+    if (matches.length !== 1) return null;
+    const r = matches[0]!;
+    return { uuid: r.id, name: r.name, dbref: r.dbref };
+  }
+
+  /** The recipient's live inbox rows (service read, scoped to the recipient),
+   *  newest first — the ordering `mail read N`/`mail delete N` index into. */
+  private async rawInbox(
+    recipientUuid: string,
+  ): Promise<{ id: number; sender_id: string; subject: string; body: string; sent_at: string; read_at: string | null }[]> {
+    const { data } = await this.svc
+      .from("mail")
+      .select("id, sender_id, subject, body, sent_at, read_at")
+      .eq("recipient_id", recipientUuid)
+      .eq("recipient_deleted", false)
+      .order("id", { ascending: false });
+    return (data ?? []) as {
+      id: number;
+      sender_id: string;
+      subject: string;
+      body: string;
+      sent_at: string;
+      read_at: string | null;
+    }[];
+  }
+
+  private async moderate(
+    playerId: string,
+    targetToken: string,
+    call: (
+      actor: SupabaseClient,
+      t: { uuid: string; name: string; dbref: number },
+    ) => PromiseLike<{ error: { message: string } | null }>,
+  ): Promise<ModerationResult> {
+    const b = this.bound.get(playerId);
+    if (!b) return { ok: false, code: "MODERATION_REFUSED", reason: "session not bound" };
+    const t = await this.resolvePlayerUuid(playerId, targetToken);
+    if (!t) return { ok: false, code: "NO_SUCH_PLAYER", reason: `no player "${targetToken}"` };
+    const { error } = await call(b.actor, t);
+    if (error) return { ok: false, code: classifyFaithful(error.message), reason: error.message };
+    return { ok: true, targetPlayerId: publicId(t.dbref), targetName: t.name };
+  }
+
   // ---- softcode meets the world (GENMURK-EPIC1-07) ------------------------
 
   /** Wrap prepared runs over a fresh neighborhood snapshot. Mutations a run
@@ -414,5 +666,18 @@ export class SupabaseGateway implements WorldGateway {
  *  to distinguish, everything else is a generic build failure. */
 function classify(message: string): BuildErrorCode {
   if (/permission denied|requires the builder|only god/i.test(message)) return "PERMISSION_DENIED";
+  return "BUILD_FAILED";
+}
+
+/** The faithful layer (GENMURK-EPIC1-09) distinguishes more refusal shapes than
+ *  the build codes: a full mailbox, a silenced sender, a missing message, and
+ *  the moderation guards (God #1 / equal-or-higher tier). */
+function classifyFaithful(message: string): FaithfulErrorCode {
+  if (/mailbox is full/i.test(message)) return "MAILBOX_FULL";
+  if (/silenced/i.test(message)) return "SILENCED";
+  if (/no such message/i.test(message)) return "NO_SUCH_MAIL";
+  if (/God #1|equal or higher tier|may not be moderated/i.test(message)) return "MODERATION_REFUSED";
+  if (/permission denied|requires the|only god|not signed in/i.test(message)) return "PERMISSION_DENIED";
+  if (/no such (live )?player|no such player to/i.test(message)) return "NO_SUCH_PLAYER";
   return "BUILD_FAILED";
 }

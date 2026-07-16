@@ -31,6 +31,9 @@ export interface GatewayPlayer {
   power: Power;
   roomId: string;
   roomName: string;
+  /** GM-R16 moderation: ISO instant this player is silenced until, or null.
+   *  The coordinator reads it to gate speech at connect (and on re-silence). */
+  silencedUntil: string | null;
 }
 
 export type MoveResult =
@@ -44,15 +47,71 @@ export type BuildErrorCode =
   | "PERMISSION_DENIED"
   | "BUILD_FAILED";
 
+/** Error codes the faithful layer (GENMURK-EPIC1-09) surfaces beyond the build
+ *  codes: containment (get/drop → LOCKED), destruction (GM-R9), mail (GM-R17),
+ *  moderation (GM-R16). A superset of BuildErrorCode. */
+export type FaithfulErrorCode =
+  | BuildErrorCode
+  | "LOCKED"
+  | "NO_SUCH_PLAYER"
+  | "MAILBOX_FULL"
+  | "NO_SUCH_MAIL"
+  | "SILENCED"
+  | "MODERATION_REFUSED";
+
 /** Result of a creating verb (dig/open/create): the new object's id + name. */
 export type BuildResult =
   | { ok: true; id: string; name: string }
   | { ok: false; code: BuildErrorCode; reason: string };
 
-/** Result of a mutating verb over an existing target (set/lock/name/describe). */
+/** Result of a mutating verb over an existing target (set/lock/name/describe),
+ *  and the containment verbs (get/drop, which can additionally be LOCKED). */
 export type ActResult =
   | { ok: true; targetId: string; targetName: string }
-  | { ok: false; code: BuildErrorCode; reason: string };
+  | { ok: false; code: FaithfulErrorCode; reason: string };
+
+/** Result of destroying an object (GM-R9): success carries the dbref to
+ *  `undestroy` with and the recovery window so the UX is honest to the user. */
+export type DestroyResult =
+  | { ok: true; targetId: string; targetName: string; recoverySeconds: number }
+  | { ok: false; code: FaithfulErrorCode; reason: string };
+
+/** Result of sending mail (GM-R17). */
+export type MailSendResult =
+  | { ok: true; recipientName: string }
+  | { ok: false; code: FaithfulErrorCode; reason: string };
+
+/** One inbox line (GM-R17), newest first; `index` is the 1-based handle the
+ *  player uses with `mail read`/`mail delete`. */
+export interface MailSummary {
+  index: number;
+  id: number;
+  fromName: string;
+  subject: string;
+  sentAt: string;
+  unread: boolean;
+}
+
+export type MailReadResult =
+  | { ok: true; fromName: string; subject: string; body: string; sentAt: string }
+  | { ok: false; code: FaithfulErrorCode; reason: string };
+
+export type MailDeleteResult =
+  | { ok: true }
+  | { ok: false; code: FaithfulErrorCode; reason: string };
+
+/** Result of a moderation act (GM-R16): success carries the affected player so
+ *  the transport plane can act (deliver a warning, disconnect a booted
+ *  player, update a silenced session). */
+export type ModerationResult =
+  | { ok: true; targetPlayerId: string; targetName: string }
+  | { ok: false; code: FaithfulErrorCode; reason: string };
+
+/** Silence adds the window's end so the coordinator can gate speech and the
+ *  UX can report the expiry honestly (GM-R16). */
+export type SilenceResult =
+  | { ok: true; targetPlayerId: string; targetName: string; until: string }
+  | { ok: false; code: FaithfulErrorCode; reason: string };
 
 /** What `look` sees, from the world of record (occupancy — who is *connected*
  *  — is the coordinator's; dispatch merges the two). */
@@ -140,6 +199,31 @@ export interface WorldGateway {
   setLock(playerId: string, targetToken: string, lock: LockKind, expr: string): Promise<ActResult>;
   rename(playerId: string, targetToken: string, newName: string): Promise<ActResult>;
 
+  // --- containment: take a thing / drop it (GM-R6 + pickup lock GM-R8) ---
+  /** Take a co-located thing into inventory, gated by its pickup lock (GM-R8). */
+  get(playerId: string, targetToken: string): Promise<ActResult>;
+  /** Drop a held thing into the current room. */
+  drop(playerId: string, targetToken: string): Promise<ActResult>;
+
+  // --- recoverable destruction (GM-R9) ---
+  /** Soft-destroy a controlled object; returns its dbref + the recovery window. */
+  destroy(playerId: string, targetToken: string): Promise<DestroyResult>;
+  /** Recover a soft-destroyed object by its `#dbref` (destroyed objects are not
+   *  name-resolvable — they have left the actor's snapshot), within the window. */
+  recover(playerId: string, dbrefToken: string): Promise<ActResult>;
+
+  // --- in-world mail (GM-R17) ---
+  mailSend(playerId: string, recipientToken: string, subject: string, body: string): Promise<MailSendResult>;
+  mailInbox(playerId: string): Promise<MailSummary[]>;
+  mailRead(playerId: string, index: number): Promise<MailReadResult>;
+  mailDelete(playerId: string, index: number): Promise<MailDeleteResult>;
+
+  // --- moderation (GM-R16), wizard+ — the audit trail is written server-side ---
+  warn(playerId: string, targetToken: string, reason: string): Promise<ModerationResult>;
+  boot(playerId: string, targetToken: string, reason: string): Promise<ModerationResult>;
+  silence(playerId: string, targetToken: string, minutes: number | null): Promise<SilenceResult>;
+  unsilence(playerId: string, targetToken: string): Promise<ModerationResult>;
+
   // --- softcode meets the world (GM-R11/R12, GENMURK-EPIC1-07) ---
   /** Scan the player's neighborhood for a `$`-command matching the typed
    *  line (built-ins have already declined it — precedence is theirs).
@@ -192,10 +276,31 @@ export interface FixtureSpec {
  * second world of record — the real RPCs are the authority the acceptance
  * scenario proves against.
  */
+interface FixtureMail {
+  id: number;
+  senderId: string;
+  recipientId: string;
+  subject: string;
+  body: string;
+  sentAt: string;
+  readAt: string | null;
+  deleted: boolean;
+}
+
+const FIXTURE_RECOVERY_SECONDS = 604800; // 7 days — mirrors app_settings default
+const FIXTURE_MAIL_INBOX_MAX = 100;
+const FIXTURE_SILENCE_DEFAULT_MINUTES = 60;
+
 export class FixtureGateway implements WorldGateway {
   private readonly snap: WorldSnapshot = { objects: new Map(), attrs: new Map(), locks: new Map() };
   private readonly nameToId = new Map<string, string>();
   private nextDbref = 100;
+  // the faithful layer's in-memory state (GENMURK-EPIC1-09): the soft-destroy
+  // bin (GM-R9), the mailbag (GM-R17), and per-player silence (GM-R16).
+  private readonly bin = new Map<string, SnapObject>();
+  private readonly mailbag: FixtureMail[] = [];
+  private nextMailId = 1;
+  private readonly silencedUntil = new Map<string, string>();
 
   constructor(spec: FixtureSpec) {
     for (const [key, r] of Object.entries(spec.rooms)) {
@@ -318,7 +423,14 @@ export class FixtureGateway implements WorldGateway {
     const p = this.snap.objects.get(id)!;
     const room = p.locationId ? this.roomView(p.locationId) : null;
     if (!room) return null;
-    return { playerId: id, playerName: p.name, power: p.power, roomId: room.id, roomName: room.name };
+    return {
+      playerId: id,
+      playerName: p.name,
+      power: p.power,
+      roomId: room.id,
+      roomName: room.name,
+      silencedUntil: this.silencedUntil.get(id) ?? null,
+    };
   }
 
   async resolve(playerId: string, token: string): Promise<Resolution & { name?: string }> {
@@ -459,6 +571,205 @@ export class FixtureGateway implements WorldGateway {
     return this.withTarget(playerId, targetToken, (t) => {
       this.put({ ...t, name: newName });
     });
+  }
+
+  // ---- containment: take / drop (GM-R6 + pickup lock GM-R8) ----------------
+
+  async get(playerId: string, targetToken: string): Promise<ActResult> {
+    const me = this.snap.objects.get(playerId);
+    if (!me) return { ok: false, code: "PERMISSION_DENIED", reason: "no such player" };
+    const r = this.resolveToken(playerId, targetToken);
+    if (r.status === "none") return { ok: false, code: "NO_SUCH_TARGET", reason: `no "${targetToken}" here` };
+    if (r.status === "ambiguous") return { ok: false, code: "AMBIGUOUS_TARGET", reason: `"${targetToken}" is ambiguous` };
+    const t = this.snap.objects.get(r.id)!;
+    if (t.type !== "thing") return { ok: false, code: "NO_SUCH_TARGET", reason: `you can't take ${t.name}` };
+    if (t.locationId !== me.locationId) return { ok: false, code: "NO_SUCH_TARGET", reason: `${t.name} is not here` };
+    // GM-R8: the thing's pickup lock gates taking it (default open, as in the reference).
+    if (!this.world().canPickup(playerId, t.id)) {
+      return { ok: false, code: "LOCKED", reason: `you can't pick up ${t.name}` };
+    }
+    this.put({ ...t, locationId: playerId });
+    return { ok: true, targetId: t.id, targetName: t.name };
+  }
+
+  async drop(playerId: string, targetToken: string): Promise<ActResult> {
+    const me = this.snap.objects.get(playerId);
+    if (!me || !me.locationId) return { ok: false, code: "PERMISSION_DENIED", reason: "you are nowhere" };
+    const r = this.resolveToken(playerId, targetToken);
+    if (r.status === "none") return { ok: false, code: "NO_SUCH_TARGET", reason: `you aren't holding "${targetToken}"` };
+    if (r.status === "ambiguous") return { ok: false, code: "AMBIGUOUS_TARGET", reason: `"${targetToken}" is ambiguous` };
+    const t = this.snap.objects.get(r.id)!;
+    if (t.type !== "thing" || t.locationId !== playerId) {
+      return { ok: false, code: "NO_SUCH_TARGET", reason: `you aren't holding ${t.name}` };
+    }
+    this.put({ ...t, locationId: me.locationId });
+    return { ok: true, targetId: t.id, targetName: t.name };
+  }
+
+  // ---- recoverable destruction (GM-R9) ------------------------------------
+
+  async destroy(playerId: string, targetToken: string): Promise<DestroyResult> {
+    const r = this.resolveToken(playerId, targetToken);
+    if (r.status === "none") return { ok: false, code: "NO_SUCH_TARGET", reason: `no "${targetToken}" here` };
+    if (r.status === "ambiguous") return { ok: false, code: "AMBIGUOUS_TARGET", reason: `"${targetToken}" is ambiguous` };
+    const t = this.snap.objects.get(r.id)!;
+    if (!this.controls(playerId, t.id)) {
+      return { ok: false, code: "PERMISSION_DENIED", reason: `you don't control ${t.name}` };
+    }
+    if (t.dbref === 0 || t.dbref === 1) {
+      return { ok: false, code: "PERMISSION_DENIED", reason: "the root room and god are indestructible" };
+    }
+    if ([...this.snap.objects.values()].some((o) => o.locationId === t.id)) {
+      return { ok: false, code: "BUILD_FAILED", reason: "object is not empty (move its contents first)" };
+    }
+    this.snap.objects.delete(t.id);
+    this.bin.set(t.id, t);
+    return { ok: true, targetId: t.id, targetName: t.name, recoverySeconds: FIXTURE_RECOVERY_SECONDS };
+  }
+
+  async recover(playerId: string, dbrefToken: string): Promise<ActResult> {
+    const id = dbrefToken.trim();
+    if (!/^#\d+$/.test(id)) return { ok: false, code: "NO_SUCH_TARGET", reason: "recover takes a #dbref" };
+    const t = this.bin.get(id);
+    if (!t) return { ok: false, code: "NO_SUCH_TARGET", reason: `#${id.slice(1)} is not in the bin` };
+    // the target is destroyed (out of the snapshot), so check control against
+    // the binned object directly: its owner, or a wizard/god.
+    const actor = this.snap.objects.get(playerId);
+    if (!actor || (powerRank(actor.power) < 3 && t.ownerId !== playerId)) {
+      return { ok: false, code: "PERMISSION_DENIED", reason: `you don't control ${t.name}` };
+    }
+    this.bin.delete(id);
+    this.put(t);
+    return { ok: true, targetId: t.id, targetName: t.name };
+  }
+
+  // ---- in-world mail (GM-R17) ---------------------------------------------
+
+  private resolvePlayerGlobally(actorId: string, token: string): SnapObject | null {
+    const t = token.trim();
+    if (t.toLowerCase() === "me") return this.snap.objects.get(actorId) ?? null;
+    if (/^#\d+$/.test(t)) {
+      const o = this.snap.objects.get(t);
+      return o && o.type === "player" ? o : null;
+    }
+    const players = [...this.snap.objects.values()].filter(
+      (o) => o.type === "player" && o.name.toLowerCase() === t.toLowerCase(),
+    );
+    return players.length === 1 ? players[0]! : null;
+  }
+
+  private inboxFor(playerId: string): FixtureMail[] {
+    return this.mailbag
+      .filter((m) => m.recipientId === playerId && !m.deleted)
+      .sort((a, b) => b.id - a.id);
+  }
+
+  async mailSend(playerId: string, recipientToken: string, subject: string, body: string): Promise<MailSendResult> {
+    const me = this.snap.objects.get(playerId);
+    if (!me) return { ok: false, code: "PERMISSION_DENIED", reason: "no such player" };
+    if (this.isSilenced(playerId)) return { ok: false, code: "SILENCED", reason: "you are silenced and cannot send mail" };
+    const to = this.resolvePlayerGlobally(playerId, recipientToken);
+    if (!to) return { ok: false, code: "NO_SUCH_PLAYER", reason: `no player "${recipientToken}"` };
+    if (body.trim() === "") return { ok: false, code: "BUILD_FAILED", reason: "a message may not be empty" };
+    if (this.inboxFor(to.id).length >= FIXTURE_MAIL_INBOX_MAX) {
+      return { ok: false, code: "MAILBOX_FULL", reason: "recipient mailbox is full" };
+    }
+    this.mailbag.push({
+      id: this.nextMailId++,
+      senderId: playerId,
+      recipientId: to.id,
+      subject: subject.slice(0, 128),
+      body,
+      sentAt: new Date().toISOString(),
+      readAt: null,
+      deleted: false,
+    });
+    return { ok: true, recipientName: to.name };
+  }
+
+  async mailInbox(playerId: string): Promise<MailSummary[]> {
+    return this.inboxFor(playerId).map((m, i) => ({
+      index: i + 1,
+      id: m.id,
+      fromName: this.snap.objects.get(m.senderId)?.name ?? m.senderId,
+      subject: m.subject,
+      sentAt: m.sentAt,
+      unread: m.readAt === null,
+    }));
+  }
+
+  async mailRead(playerId: string, index: number): Promise<MailReadResult> {
+    const inbox = this.inboxFor(playerId);
+    const m = inbox[index - 1];
+    if (!m) return { ok: false, code: "NO_SUCH_MAIL", reason: `no message ${index} in your inbox` };
+    m.readAt = m.readAt ?? new Date().toISOString();
+    return {
+      ok: true,
+      fromName: this.snap.objects.get(m.senderId)?.name ?? m.senderId,
+      subject: m.subject,
+      body: m.body,
+      sentAt: m.sentAt,
+    };
+  }
+
+  async mailDelete(playerId: string, index: number): Promise<MailDeleteResult> {
+    const inbox = this.inboxFor(playerId);
+    const m = inbox[index - 1];
+    if (!m) return { ok: false, code: "NO_SUCH_MAIL", reason: `no message ${index} in your inbox` };
+    m.deleted = true;
+    return { ok: true };
+  }
+
+  // ---- moderation (GM-R16) ------------------------------------------------
+
+  private isSilenced(playerId: string): boolean {
+    const until = this.silencedUntil.get(playerId);
+    return until !== undefined && new Date(until).getTime() > Date.now();
+  }
+
+  private moderationTarget(
+    actorId: string,
+    token: string,
+  ): SnapObject | { ok: false; code: FaithfulErrorCode; reason: string } {
+    const actor = this.snap.objects.get(actorId);
+    if (!actor || powerRank(actor.power) < 3) {
+      return { ok: false, code: "PERMISSION_DENIED", reason: "moderation requires the wizard power" };
+    }
+    const t = this.resolvePlayerGlobally(actorId, token);
+    if (!t) return { ok: false, code: "NO_SUCH_PLAYER", reason: `no player "${token}"` };
+    if (t.dbref === 1) return { ok: false, code: "MODERATION_REFUSED", reason: "God #1 may not be moderated" };
+    if (powerRank(actor.power) < 4 && powerRank(t.power) >= powerRank(actor.power)) {
+      return { ok: false, code: "MODERATION_REFUSED", reason: "you may not moderate an equal or higher tier" };
+    }
+    return t;
+  }
+
+  async warn(playerId: string, targetToken: string, _reason: string): Promise<ModerationResult> {
+    const t = this.moderationTarget(playerId, targetToken);
+    if ("ok" in t) return t;
+    return { ok: true, targetPlayerId: t.id, targetName: t.name };
+  }
+
+  async boot(playerId: string, targetToken: string, _reason: string): Promise<ModerationResult> {
+    const t = this.moderationTarget(playerId, targetToken);
+    if ("ok" in t) return t;
+    return { ok: true, targetPlayerId: t.id, targetName: t.name };
+  }
+
+  async silence(playerId: string, targetToken: string, minutes: number | null): Promise<SilenceResult> {
+    const t = this.moderationTarget(playerId, targetToken);
+    if ("ok" in t) return t;
+    const mins = minutes && minutes > 0 ? minutes : FIXTURE_SILENCE_DEFAULT_MINUTES;
+    const until = new Date(Date.now() + mins * 60_000).toISOString();
+    this.silencedUntil.set(t.id, until);
+    return { ok: true, targetPlayerId: t.id, targetName: t.name, until };
+  }
+
+  async unsilence(playerId: string, targetToken: string): Promise<ModerationResult> {
+    const t = this.moderationTarget(playerId, targetToken);
+    if ("ok" in t) return t;
+    this.silencedUntil.delete(t.id);
+    return { ok: true, targetPlayerId: t.id, targetName: t.name };
   }
 
   // ---- softcode meets the world (GENMURK-EPIC1-07) ------------------------

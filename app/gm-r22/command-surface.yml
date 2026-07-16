@@ -143,7 +143,82 @@ commands:
     reference_tag: GM-R7
     provisional: true
     implemented: true
-    divergence: "the lock EXPRESSION grammar is a bounded safe subset (GM-R14); richer reference key forms are rejected outright, never approximated (safe behavior wins, documented for the returning user)"
+    divergence: "the lock EXPRESSION grammar is a bounded safe subset (GM-R14) — boolean ops, `#N` keys, `owner(#N)` ownership, and `ATTR:glob`; richer reference key forms are rejected outright, never approximated, and evaluation is length/depth/step-bounded (safe behavior wins, documented for the returning user)"
+
+  # --- containment: take a thing from the room / drop it (GM-R6 + pickup lock GM-R8) ---
+  - verb: get
+    syntax: "get <thing>"
+    example: "get a brass lantern"
+    behavior: containment
+    reference_tag: GM-R8
+    provisional: true
+    implemented: true
+    divergence: "the pickup lock (GM-R8) is evaluated on the world-API before the move, like exit `use` locks; a defense-in-depth DB-side re-evaluation is a documented later step (dependency register). An unlocked thing is takeable by anyone co-located (reference default-open)."
+  - verb: drop
+    syntax: "drop <thing>"
+    example: "drop a brass lantern"
+    behavior: containment
+    reference_tag: GM-R6
+    provisional: true
+    implemented: true
+
+  # --- recoverable destruction (GM-R9) ---
+  - verb: destroy
+    syntax: "destroy <target>"
+    example: "destroy old sign"
+    behavior: lifecycle
+    reference_tag: GM-R9
+    provisional: true
+    implemented: true
+  - verb: undestroy
+    syntax: "undestroy <#dbref>"
+    example: "undestroy #42"
+    behavior: lifecycle
+    reference_tag: GM-R9
+    provisional: true
+    implemented: true
+    divergence: "a destroyed object has left the actor's snapshot, so recovery is by `#dbref` (which the destroy confirmation prints), not by name — the honest consequence of RLS hiding the bin from non-wizards (safe behavior wins)"
+
+  # --- in-world mail (GM-R17) ---
+  - verb: mail
+    syntax: "mail <player> = <message>  |  mail  |  mail read <n>  |  mail delete <n>"
+    example: "mail Bob = are you there"
+    behavior: mail
+    reference_tag: GM-R17
+    provisional: true
+    implemented: true
+    divergence: "v1 mail is body-only from the command line; the subject-line syntax the reference used is a capture question (the RPC carries a subject for later). Mail is quota-bounded (a capped inbox) and wizard-readable for moderation."
+
+  # --- moderation (GM-R16) ---
+  - verb: warn
+    syntax: "warn <player> = <reason>"
+    example: "warn Bob = please be civil"
+    behavior: moderation
+    reference_tag: GM-R16
+    provisional: true
+    implemented: true
+  - verb: boot
+    syntax: "boot <player> [= <reason>]"
+    example: "boot Bob = spamming the channel"
+    behavior: moderation
+    reference_tag: GM-R16
+    provisional: true
+    implemented: true
+  - verb: silence
+    syntax: "silence <player> [= <minutes>]"
+    example: "silence Bob = 30"
+    behavior: moderation
+    reference_tag: GM-R16
+    provisional: true
+    implemented: true
+    divergence: "moderation cannot be turned sideways or upward — God #1 is never a target and a wizard may not moderate an equal-or-higher tier (only a god may reach a wizard); the safe behavior wins (GM-R14/R15)"
+  - verb: unsilence
+    syntax: "unsilence <player>"
+    example: "unsilence Bob"
+    behavior: moderation
+    reference_tag: GM-R16
+    provisional: true
+    implemented: true
 
   # --- NOT an entry: the $-command MECHANISM (GENMURK-EPIC1-07) -------------
   # Attribute-attached softcode commands (`$<pattern>:<program>`) are a

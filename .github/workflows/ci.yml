@@ -59,3 +59,47 @@ jobs:
         run: npm run leak-check
       - name: Typecheck + softcode adversarial proof
         run: npm test
+
+  # v1-slice — THE PLAYABLE VERTICAL SLICE (GENMURK-EPIC1-09), the epic's
+  # integration acceptance: one scripted multi-client scenario over a REAL
+  # local Supabase stack on the runner — register/login (08) → walk & talk
+  # (05/06) → build & lock (06/GM-R8) → a $-command another player triggers
+  # (07) → page & mail (05/GM-R17) → a wizard moderates (GM-R16) →
+  # destroy/undestroy (GM-R9). The moderation audit trail is asserted. Same
+  # supabase/setup-cli discipline as the studio's other live-stack gates.
+  # LOCALHOST ONLY — the stack lives and dies on the runner; nothing hosted.
+  v1-slice:
+    if: ${{ github.repository_owner == 'bussetech' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.2.2
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: latest
+      - run: npm ci
+      - name: Start the local stack (sidecars the app does not use are excluded)
+        run: >
+          supabase start
+          -x studio,realtime,storage-api,imgproxy,inbucket,postgres-meta,edge-runtime,logflare,vector
+      - name: Export stack credentials for the gate
+        run: |
+          eval "$(supabase status -o env)"
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+      - name: THE v1 PLAYABLE VERTICAL SLICE (integration acceptance)
+        run: npm run test:slice
+      - if: always()
+        run: supabase stop

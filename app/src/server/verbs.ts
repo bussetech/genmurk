@@ -11,27 +11,42 @@
 //     "describe";
 //   - GM-R6 names movement — "movement updates location and fires presence";
 //     the plain-English "go"/"enter"/"leave" express exit traversal and
-//     containment moves;
+//     containment moves; GM-R6/R8's "containers hold things" + "pickup" give
+//     the take/drop pair (GENMURK-EPIC1-09);
 //   - GM-R8 names the lock kinds "use", "entry" (→ enter), "pickup";
+//   - GM-R9 names "recoverable" destruction → destroy / undestroy;
+//   - GM-R16 names "warnings, boots/silences" → warn / boot / silence;
+//   - GM-R17 names "in-world mail" → mail;
 //   - GM-R12 names the resolution keywords "me", "here", partial names,
 //     "#dbref";
 //   - plus plain English (`look`, `quit`).
 // The MECHANICS behind them (room fan-out, world-of-record mutation, name
-// matching, lock gating) are this prompt's deliverable and survive the
-// capture; the SURFACES (exact names, any `@`-prefix or `/switch` convention
-// the reference used, argument punctuation) finalize under GM-R22 in later
-// prompts, dropped in as data against the compatibility harness in
-// app/gm-r22/. Not a single name here comes from memory of the wider MUSH
-// family — that is the clean-room line, and the GM-R22 harness reports every
-// one of these as a PROVISIONAL entry until the capture confirms it.
+// matching, lock gating, moderation audit) are this prompt's deliverable and
+// survive the capture; the SURFACES (exact names, any `@`-prefix or `/switch`
+// convention the reference used, argument punctuation, mail subject lines)
+// finalize under GM-R22 in later prompts, dropped in as data against the
+// compatibility harness in app/gm-r22/. Not a single name here comes from
+// memory of the wider MUSH family — that is the clean-room line, and the
+// GM-R22 harness reports every one of these as a PROVISIONAL entry until the
+// capture confirms it.
 //
-// Argument punctuation note (provisional): building verbs that take a target
-// plus a payload use `=` as the separator (`open north = Kitchen`,
-// `set lantern = desc:brass`) so target names may contain spaces; the exact
-// reference punctuation is a capture question, tracked as a divergence-class
-// entry in the harness, not asserted here.
+// Argument punctuation note (provisional): verbs that take a target plus a
+// payload use `=` as the separator (`open north = Kitchen`, `mail Bob = hi`)
+// so target names may contain spaces; the exact reference punctuation is a
+// capture question, tracked as a divergence-class entry in the harness, not
+// asserted here.
 
 export type LockKind = "enter" | "use" | "pickup";
+
+/** Mail sub-commands (GM-R17). Send always carries a `=`; the bare/list/read/
+ *  delete forms have none, which is how the parser tells them apart. Subject
+ *  lines are a capture question, so v1 mail is body-only from the command line
+ *  (the RPC/API carries a subject for later). */
+export type MailAction =
+  | { kind: "send"; target: string; subject: string; body: string }
+  | { kind: "list" }
+  | { kind: "read"; n: number }
+  | { kind: "delete"; n: number };
 
 export type ParsedCommand =
   // presence & speech (GENMURK-EPIC1-05)
@@ -45,6 +60,9 @@ export type ParsedCommand =
   | { verb: "enter"; target: string }
   | { verb: "leave" }
   | { verb: "look" }
+  // containment: take a thing from the room / drop it back (GM-R6 + pickup lock GM-R8)
+  | { verb: "get"; target: string }
+  | { verb: "drop"; target: string }
   // building (GM-R7) + locks (GM-R8)
   | { verb: "dig"; name: string }
   | { verb: "open"; exit: string; dest: string }
@@ -53,6 +71,16 @@ export type ParsedCommand =
   | { verb: "name"; target: string; newName: string }
   | { verb: "describe"; target: string; text: string }
   | { verb: "lock"; target: string; lock: LockKind; expr: string }
+  // recoverable destruction (GM-R9)
+  | { verb: "destroy"; target: string }
+  | { verb: "undestroy"; target: string }
+  // in-world mail (GM-R17)
+  | { verb: "mail"; mail: MailAction }
+  // moderation (GM-R16)
+  | { verb: "warn"; target: string; reason: string }
+  | { verb: "boot"; target: string; reason: string }
+  | { verb: "silence"; target: string; minutes: number | null }
+  | { verb: "unsilence"; target: string }
   // control
   | { verb: "quit" }
   | { verb: "unknown"; input: string }
@@ -68,7 +96,11 @@ export type BehaviorClass =
   | "broadcast" // announce — privileged (GM-R3)
   | "movement" // go/enter/leave — location change + presence (GM-R6)
   | "look" // observe the room (GM-R1 presence surface)
+  | "containment" // get/drop — take a thing from / return it to the room (GM-R6/R8)
   | "build" // dig/open/create/set/name/describe/lock — world mutation (GM-R7/R8)
+  | "lifecycle" // destroy/undestroy — recoverable destruction (GM-R9)
+  | "mail" // in-world mail between players (GM-R17)
+  | "moderation" // warn/boot/silence/unsilence — admin tooling (GM-R16)
   | "session"; // quit
 
 /** Split a "target = payload" line on the FIRST `=`. Returns null when there
@@ -78,6 +110,29 @@ function splitAssign(rest: string): { left: string; right: string } | null {
   const eq = rest.indexOf("=");
   if (eq === -1) return null;
   return { left: rest.slice(0, eq).trim(), right: rest.slice(eq + 1).trim() };
+}
+
+/** Parse the mail sub-command from the arguments after `mail`. */
+function parseMail(rest: string): ParsedCommand {
+  const trimmed = rest.trim();
+  if (trimmed === "" || trimmed.toLowerCase() === "list") {
+    return { verb: "mail", mail: { kind: "list" } };
+  }
+  const space = trimmed.indexOf(" ");
+  const head = (space === -1 ? trimmed : trimmed.slice(0, space)).toLowerCase();
+  const tail = space === -1 ? "" : trimmed.slice(space + 1).trim();
+  // `mail read <n>` / `mail delete <n>` — reserved sub-commands (a message index)
+  if ((head === "read" || head === "delete") && !trimmed.includes("=")) {
+    const n = Number.parseInt(tail, 10);
+    if (!Number.isInteger(n) || n < 1) return { verb: "unknown", input: `mail ${trimmed}` };
+    return { verb: "mail", mail: head === "read" ? { kind: "read", n } : { kind: "delete", n } };
+  }
+  // `mail <recipient> = <body>` — send (subject is a capture question, empty in v1)
+  const parts = splitAssign(trimmed);
+  if (!parts || parts.left === "" || parts.right === "") {
+    return { verb: "unknown", input: `mail ${trimmed}` };
+  }
+  return { verb: "mail", mail: { kind: "send", target: parts.left, subject: "", body: parts.right } };
 }
 
 export function parseCommand(line: string): ParsedCommand {
@@ -113,6 +168,13 @@ export function parseCommand(line: string): ParsedCommand {
       return { verb: "leave" };
     case "look":
       return { verb: "look" };
+
+    // --- containment (GM-R6 + pickup lock GM-R8) ---
+    case "get":
+    case "take":
+      return rest === "" ? { verb: "unknown", input: trimmed } : { verb: "get", target: rest };
+    case "drop":
+      return rest === "" ? { verb: "unknown", input: trimmed } : { verb: "drop", target: rest };
 
     // --- building (GM-R7) ---
     case "dig":
@@ -171,6 +233,37 @@ export function parseCommand(line: string): ParsedCommand {
       return { verb: "lock", target: parts.left, lock: type, expr: parts.right };
     }
 
+    // --- recoverable destruction (GM-R9) ---
+    case "destroy":
+      return rest === "" ? { verb: "unknown", input: trimmed } : { verb: "destroy", target: rest };
+    case "undestroy":
+      return rest === "" ? { verb: "unknown", input: trimmed } : { verb: "undestroy", target: rest };
+
+    // --- in-world mail (GM-R17) ---
+    case "mail":
+      return parseMail(rest);
+
+    // --- moderation (GM-R16) ---
+    case "warn":
+    case "boot": {
+      if (rest === "") return { verb: "unknown", input: trimmed };
+      const parts = splitAssign(rest);
+      const target = parts ? parts.left : rest;
+      const reason = parts ? parts.right : "";
+      if (target === "") return { verb: "unknown", input: trimmed };
+      return { verb: head, target, reason };
+    }
+    case "silence": {
+      if (rest === "") return { verb: "unknown", input: trimmed };
+      const parts = splitAssign(rest);
+      if (!parts) return { verb: "silence", target: rest, minutes: null };
+      if (parts.left === "") return { verb: "unknown", input: trimmed };
+      const m = Number.parseInt(parts.right, 10);
+      return { verb: "silence", target: parts.left, minutes: Number.isInteger(m) && m > 0 ? m : null };
+    }
+    case "unsilence":
+      return rest === "" ? { verb: "unknown", input: trimmed } : { verb: "unsilence", target: rest };
+
     // --- control ---
     case "quit":
       return { verb: "quit" };
@@ -196,6 +289,9 @@ export function behaviorClass(verb: ParsedCommand["verb"]): BehaviorClass | null
       return "movement";
     case "look":
       return "look";
+    case "get":
+    case "drop":
+      return "containment";
     case "dig":
     case "open":
     case "create":
@@ -204,6 +300,16 @@ export function behaviorClass(verb: ParsedCommand["verb"]): BehaviorClass | null
     case "describe":
     case "lock":
       return "build";
+    case "destroy":
+    case "undestroy":
+      return "lifecycle";
+    case "mail":
+      return "mail";
+    case "warn":
+    case "boot":
+    case "silence":
+    case "unsilence":
+      return "moderation";
     case "quit":
       return "session";
     case "unknown":

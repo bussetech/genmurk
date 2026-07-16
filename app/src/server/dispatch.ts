@@ -29,7 +29,7 @@ import type { RoomCoordinator } from "./coordinator.ts";
 import type { SoftcodeBatch, WorldGateway } from "./gateway.ts";
 import type { ServerMessage } from "./protocol.ts";
 import { SOFTCODE_RUN_BUDGET, type TriggerKind } from "./softcode.ts";
-import { parseCommand } from "./verbs.ts";
+import { parseCommand, type MailAction } from "./verbs.ts";
 
 export interface DispatchDeps {
   coordinator: RoomCoordinator;
@@ -99,13 +99,19 @@ export async function dispatch(deps: DispatchDeps, line: string): Promise<void> 
 
     // --- speech (GM-R2) ---
     case "say":
-    case "emote":
+    case "emote": {
+      // GM-R16: a silenced player is refused; everyone else is unaffected.
+      const muted = coordinator.silencedReason(sessionId);
+      if (muted) return send({ type: "error", code: "SILENCED", text: muted });
       coordinator.speak(sessionId, cmd.verb, cmd.text);
       return;
+    }
 
     // --- directed / broadcast (GM-R3) ---
     case "page":
     case "whisper": {
+      const muted = coordinator.silencedReason(sessionId);
+      if (muted) return send({ type: "error", code: "SILENCED", text: muted });
       const delivered = coordinator.direct(sessionId, cmd.verb, cmd.target, cmd.text);
       if (!delivered) {
         send({ type: "error", code: "NO_SUCH_PLAYER", text: `${cmd.target} is not connected` });
@@ -115,6 +121,8 @@ export async function dispatch(deps: DispatchDeps, line: string): Promise<void> 
       return;
     }
     case "announce": {
+      const muted = coordinator.silencedReason(sessionId);
+      if (muted) return send({ type: "error", code: "SILENCED", text: muted });
       if (coordinator.announce(sessionId, cmd.text) === "denied") {
         send({ type: "error", code: "PERMISSION_DENIED", text: "announce is a privileged act" });
       }
@@ -229,6 +237,102 @@ export async function dispatch(deps: DispatchDeps, line: string): Promise<void> 
       return;
     }
 
+    // --- containment: take / drop (GM-R6 + pickup lock GM-R8) ---
+    case "get": {
+      const pid = playerId();
+      if (!pid) return;
+      const r = await gateway.get(pid, cmd.target);
+      if (!r.ok) return send({ type: "error", code: r.code, text: r.reason });
+      send({ type: "info", text: `You take ${r.targetName}.` });
+      return;
+    }
+    case "drop": {
+      const pid = playerId();
+      if (!pid) return;
+      const r = await gateway.drop(pid, cmd.target);
+      if (!r.ok) return send({ type: "error", code: r.code, text: r.reason });
+      send({ type: "info", text: `You drop ${r.targetName}.` });
+      return;
+    }
+
+    // --- recoverable destruction (GM-R9) ---
+    case "destroy": {
+      const pid = playerId();
+      if (!pid) return;
+      const r = await gateway.destroy(pid, cmd.target);
+      if (!r.ok) return send({ type: "error", code: r.code, text: r.reason });
+      const days = Math.round((r.recoverySeconds / 86400) * 10) / 10;
+      // the window is stated so the UX is honest: they know exactly how long
+      // `${r.targetId}` stays recoverable (GM-R9).
+      send({
+        type: "info",
+        text: `Destroyed ${r.targetName} (${r.targetId}). Recoverable with "undestroy ${r.targetId}" for ${days} day(s).`,
+      });
+      return;
+    }
+    case "undestroy": {
+      const pid = playerId();
+      if (!pid) return;
+      const r = await gateway.recover(pid, cmd.target);
+      if (!r.ok) return send({ type: "error", code: r.code, text: r.reason });
+      send({ type: "info", text: `Recovered ${r.targetName} (${r.targetId}).` });
+      return;
+    }
+
+    // --- in-world mail (GM-R17) ---
+    case "mail":
+      return dispatchMail(deps, cmd.mail);
+
+    // --- moderation (GM-R16) ---
+    case "warn": {
+      const pid = playerId();
+      if (!pid) return;
+      const r = await gateway.warn(pid, cmd.target, cmd.reason);
+      if (!r.ok) return send({ type: "error", code: r.code, text: r.reason });
+      coordinator.notify(r.targetPlayerId, {
+        type: "info",
+        text: `⚠ You have been warned by a moderator${cmd.reason ? `: ${cmd.reason}` : "."}`,
+      });
+      send({ type: "info", text: `Warned ${r.targetName}.` });
+      return;
+    }
+    case "boot": {
+      const pid = playerId();
+      if (!pid) return;
+      const r = await gateway.boot(pid, cmd.target, cmd.reason);
+      if (!r.ok) return send({ type: "error", code: r.code, text: r.reason });
+      coordinator.notify(r.targetPlayerId, {
+        type: "info",
+        text: `You have been disconnected by a moderator${cmd.reason ? `: ${cmd.reason}` : "."}`,
+      });
+      const dropped = coordinator.boot(r.targetPlayerId);
+      send({ type: "info", text: `Booted ${r.targetName} (${dropped} session(s)).` });
+      return;
+    }
+    case "silence": {
+      const pid = playerId();
+      if (!pid) return;
+      const r = await gateway.silence(pid, cmd.target, cmd.minutes);
+      if (!r.ok) return send({ type: "error", code: r.code, text: r.reason });
+      coordinator.setSilence(r.targetPlayerId, r.until); // effective immediately for live sessions
+      coordinator.notify(r.targetPlayerId, {
+        type: "info",
+        text: `You have been silenced by a moderator until ${r.until}.`,
+      });
+      send({ type: "info", text: `Silenced ${r.targetName} until ${r.until}.` });
+      return;
+    }
+    case "unsilence": {
+      const pid = playerId();
+      if (!pid) return;
+      const r = await gateway.unsilence(pid, cmd.target);
+      if (!r.ok) return send({ type: "error", code: r.code, text: r.reason });
+      coordinator.setSilence(r.targetPlayerId, null);
+      coordinator.notify(r.targetPlayerId, { type: "info", text: "A moderator has lifted your silence." });
+      send({ type: "info", text: `Unsilenced ${r.targetName}.` });
+      return;
+    }
+
     // --- control ---
     case "quit":
       deps.disconnect();
@@ -254,6 +358,46 @@ export async function dispatch(deps: DispatchDeps, line: string): Promise<void> 
         }
       }
       send({ type: "error", code: "UNKNOWN_COMMAND", text: `unknown command: ${cmd.input}` });
+      return;
+    }
+  }
+}
+
+/** In-world mail (GM-R17): send / list / read / delete. Addressing is global
+ *  by player name or `#dbref` (mail crosses rooms, unlike neighborhood-scoped
+ *  building targets); the gateway holds the quota and moderation-visibility. */
+async function dispatchMail(deps: DispatchDeps, action: MailAction): Promise<void> {
+  const { coordinator, gateway, sessionId, send } = deps;
+  const pid = coordinator.session(sessionId)?.playerId ?? null;
+  if (!pid) return;
+  switch (action.kind) {
+    case "send": {
+      const r = await gateway.mailSend(pid, action.target, action.subject, action.body);
+      if (!r.ok) return send({ type: "error", code: r.code, text: r.reason });
+      send({ type: "info", text: `Mail sent to ${r.recipientName}.` });
+      return;
+    }
+    case "list": {
+      const inbox = await gateway.mailInbox(pid);
+      if (inbox.length === 0) return send({ type: "info", text: "Your mailbox is empty." });
+      const lines = inbox.map(
+        (m) =>
+          `${m.index}. ${m.unread ? "•" : " "} from ${m.fromName}${m.subject ? ` — ${m.subject}` : ""} (${m.sentAt})`,
+      );
+      send({ type: "info", text: [`Mailbox (${inbox.length}):`, ...lines].join("\n") });
+      return;
+    }
+    case "read": {
+      const r = await gateway.mailRead(pid, action.n);
+      if (!r.ok) return send({ type: "error", code: r.code, text: r.reason });
+      const header = `From ${r.fromName} (${r.sentAt})${r.subject ? ` — ${r.subject}` : ""}`;
+      send({ type: "info", text: `${header}\n${r.body}` });
+      return;
+    }
+    case "delete": {
+      const r = await gateway.mailDelete(pid, action.n);
+      if (!r.ok) return send({ type: "error", code: r.code, text: r.reason });
+      send({ type: "info", text: `Deleted message ${action.n}.` });
       return;
     }
   }

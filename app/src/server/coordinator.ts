@@ -40,6 +40,11 @@ export interface JoinSpec {
   roomId: string;
   roomName: string;
   sink: SessionSink;
+  /** GM-R16 moderation: ISO instant this player is silenced until, or null. */
+  silencedUntil?: string | null;
+  /** transport disconnect hook, so a wizard's `boot` (GM-R16) can drop the
+   *  session. Optional: stack-free tests may omit it. */
+  disconnect?: () => void;
 }
 
 interface Session {
@@ -49,6 +54,8 @@ interface Session {
   roomId: string;
   roomName: string;
   sink: SessionSink;
+  silencedUntil: string | null;
+  disconnect: (() => void) | null;
 }
 
 export class RoomCoordinator {
@@ -57,7 +64,16 @@ export class RoomCoordinator {
 
   /** Connect: bind the session, announce arrival to the room (GM-R1). */
   join(sessionId: string, spec: JoinSpec): void {
-    this.sessions.set(sessionId, { ...spec });
+    this.sessions.set(sessionId, {
+      playerId: spec.playerId,
+      playerName: spec.playerName,
+      power: spec.power,
+      roomId: spec.roomId,
+      roomName: spec.roomName,
+      sink: spec.sink,
+      silencedUntil: spec.silencedUntil ?? null,
+      disconnect: spec.disconnect ?? null,
+    });
     this.roomEvent(spec.roomId, "arrive", spec.playerId, spec.playerName, "");
   }
 
@@ -147,6 +163,55 @@ export class RoomCoordinator {
 
   session(sessionId: string): Readonly<Session> | undefined {
     return this.sessions.get(sessionId);
+  }
+
+  // --------------------------------------------------- moderation (GM-R16)
+
+  /** Is this session's player currently silenced? Returns a player-facing
+   *  reason when so, else null. The dispatcher gates speech/paging/announce on
+   *  it (GM-R16): a silenced player is refused, everyone else is unaffected. */
+  silencedReason(sessionId: string): string | null {
+    const s = this.sessions.get(sessionId);
+    if (!s || !s.silencedUntil) return null;
+    if (new Date(s.silencedUntil).getTime() <= Date.now()) return null;
+    return `you are silenced until ${s.silencedUntil}`;
+  }
+
+  /** Apply/clear a silence to every live session of a player, so a wizard's
+   *  `silence`/`unsilence` (GM-R16) takes effect immediately for a connected
+   *  target — the DB holds the durable record, this updates the live sessions. */
+  setSilence(playerId: string, until: string | null): void {
+    for (const s of this.sessions.values()) {
+      if (s.playerId === playerId) s.silencedUntil = until;
+    }
+  }
+
+  /** Deliver a message to every live session of a player (a moderation notice,
+   *  a warning). Returns how many sessions received it. */
+  notify(playerId: string, msg: ServerMessage): number {
+    let delivered = 0;
+    for (const s of this.sessions.values()) {
+      if (s.playerId === playerId) {
+        s.sink.send(msg);
+        delivered++;
+      }
+    }
+    return delivered;
+  }
+
+  /** Boot every live session of a player (GM-R16): fire departure presence and
+   *  drop the transport. The moderation act itself is journaled server-side
+   *  (world_boot); this is its transport half. Returns how many were dropped. */
+  boot(playerId: string): number {
+    let dropped = 0;
+    for (const [sid, s] of [...this.sessions.entries()]) {
+      if (s.playerId !== playerId) continue;
+      const disconnect = s.disconnect;
+      this.leave(sid); // fires depart presence + unbinds
+      if (disconnect) disconnect();
+      dropped++;
+    }
+    return dropped;
   }
 
   // ------------------------------------------------------------- mechanism

@@ -26,7 +26,8 @@
     "test:building": "node --test test/world/building.test.ts",
     "test:escalation": "node --test test/world/escalation.test.ts",
     "test:first-boot": "node --test test/world/first-boot.test.ts",
-    "test:registration": "node --test test/world/registration.test.ts"
+    "test:registration": "node --test test/world/registration.test.ts",
+    "test:slice": "node --test test/world/slice.test.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
