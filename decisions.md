@@ -441,6 +441,20 @@ still not landed**, so real reference coverage cannot be measured and **v1
 cannot claim the STEERCO minimum bar**; #9 is escalated to `needs-human`, and
 the epic close (10) must state this plainly. *(GENMURK-EPIC1-09.)*
 
+### The dev-tier ops substrate (GM-R19): the standard contract, carried early
+The dev server answers `GET /healthz` with status + build id — the studio's
+standard health contract (the same shape its hosted apps use) — proven
+stack-free in CI; every other HTTP path stays a 404 on a WebSocket-only
+surface. Structured logging is JSON-lines with a **test-enforced privacy
+rule: identifiers and outcomes only** — typed command lines never reach a log
+(a typed line can carry a password mid-registration). Backup expectations are
+**documented against the provisioning act that will create the hosted
+database** (daily minimum, PITR preferred, a restore drill at standup), and
+the runbook draws the line explicitly: in-world `undestroy` is a player
+feature; a backup restore is instance-level and rolls everyone back — never
+conflate them. Secrets stay provider-native (GM-R19); the repo holds none,
+grep-proven in CI. *(GENMURK-EPIC1-10; `app/docs/ops.md`.)*
+
 ## Open
 
 ### Themed creative direction
