@@ -24,6 +24,7 @@ import { parseClientMessage, type ServerMessage } from "./protocol.ts";
 import { dispatch } from "./dispatch.ts";
 import { sanitizeOutbound } from "./style.ts";
 import { SupabaseGateway } from "./supabase-gateway.ts";
+import { silentLogger, jsonLineLogger, type Logger } from "./log.ts";
 
 export interface ServerHandle {
   port: number;
@@ -34,6 +35,8 @@ export interface ServerHandle {
 export interface ServerOptions {
   /** 0 = ephemeral (tests); default 8787 */
   port?: number;
+  /** structured event sink (GM-R19 posture); silent unless provided */
+  log?: Logger;
 }
 
 /** World-API-mediated softcode output → the transport. The ONLY door: a run's
@@ -56,10 +59,20 @@ export async function startServer(
   options: ServerOptions = {},
 ): Promise<ServerHandle> {
   const coordinator = new RoomCoordinator();
+  const log = options.log ?? silentLogger;
   // the sandboxed softcode engine — production build, NO instrumentation
   // (t.* test functions exist only under the proof harness)
   const engine = createEngine();
-  const httpServer = createServer((_req, res) => {
+  // GM-R19 /healthz, the eaap contract (ADR-0023 §4 / ADR-0048 §3):
+  // unauthenticated, cheap, side-effect-free, status + build id, never tenant
+  // data. A deploy stamps GENMURK_BUILD_ID; a bare dev run reports "dev".
+  const buildId = process.env["GENMURK_BUILD_ID"] ?? "dev";
+  const httpServer = createServer((req, res) => {
+    if (req.method === "GET" && req.url === "/healthz") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ status: "ok", build: buildId }) + "\n");
+      return;
+    }
     res.writeHead(404, { "content-type": "text/plain" });
     res.end("genmurk dev server: WebSocket only\n");
   });
@@ -89,6 +102,7 @@ export async function startServer(
       if (msg.type === "hello") {
         const player = await gateway.authenticate(msg.token);
         if (!player) {
+          log("session.auth_failed", { session: sessionId });
           send({ type: "error", code: "AUTH_FAILED", text: "unknown token" });
           socket.close();
           return;
@@ -105,6 +119,7 @@ export async function startServer(
           disconnect: () => socket.close(),
         });
         joined = true;
+        log("session.join", { session: sessionId, player: player.playerId, room: player.roomId });
         send({
           type: "welcome",
           player: { id: player.playerId, name: player.playerName },
@@ -154,11 +169,15 @@ export async function startServer(
     socket.on("message", (data: unknown) => {
       const raw = String(data);
       chain = chain.then(() => handle(raw)).catch(() => {
+        // identifiers only — the raw line never reaches a log (it can carry
+        // a password mid-registration)
+        log("command.error", { session: sessionId });
         send({ type: "error", code: "BAD_MESSAGE", text: "internal error handling command" });
       });
     });
 
     socket.on("close", () => {
+      log("session.close", { session: sessionId, joined });
       if (joined) coordinator.leave(sessionId);
     });
   });
@@ -202,7 +221,9 @@ if (isMain) {
   }
   const gateway = new SupabaseGateway({ url, anonKey, serviceRoleKey });
   const port = Number(process.env["GENMURK_WS_PORT"] ?? 8787);
-  startServer(gateway, { port }).then((handle) => {
+  const log = jsonLineLogger();
+  startServer(gateway, { port, log }).then((handle) => {
+    log("server.listen", { port: handle.port, host: "127.0.0.1" });
     console.log(`genmurk dev server (localhost only) — ws://127.0.0.1:${handle.port}`);
   });
 }
