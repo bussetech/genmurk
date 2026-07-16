@@ -4,7 +4,7 @@
 [![ci](https://github.com/bussetech/genmurk/actions/workflows/ci.yml/badge.svg)](https://github.com/bussetech/genmurk/actions/workflows/ci.yml)
 · **Site:** <https://genmurk.bussetech.com> · **Visibility:** `public`
 
-GenMURK — a modern multiplayer text world (MUD/MUSE): a clean-room rebuild inspired by the TinyMUSE engine and the early-1990s MIT MicroMUSE instance (historical reference, not adopted). Build-in-public living docs here; the app lives at genmurk.com.
+GenMURK — a modern multiplayer text world (MUD/MUSE): a clean-room rebuild inspired by the TinyMUSE engine and the early-1990s MIT MicroMUSE instance (historical reference, not adopted). Build-in-public living docs here; the app will live at genmurk.com (platform EPIC5).
 
 A [Bussetech Software Studio](https://bussetech.com) project: a static site
 (Jekyll, shared studio theme) rendered from text-based data stores.

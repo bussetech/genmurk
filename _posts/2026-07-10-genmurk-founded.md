@@ -20,9 +20,9 @@ is the build log, and it starts with real ground already covered:
   MicroMUSE instance, as lineage and reference only, never GenMURK's identity
   ([museum](/museum/)).
 
-This site is **documentation, not PROD.** The running GenMURK app lives
-separately at `genmurk.com` (a Workers-class runtime with a Supabase database)
-and stands up in **EPIC5**. This is the first feed item — the studio portal
+This site is **documentation, not PROD.** The running GenMURK app will live
+separately at `genmurk.com` (a Workers-class runtime with a Supabase database),
+standing up in **EPIC5**. This is the first feed item — the studio portal
 aggregates `/feed.json` from every project site, so publishing here is how
 GenMURK's build surfaces on the studio homepage.
 

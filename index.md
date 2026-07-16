@@ -1,7 +1,7 @@
 ---
 layout: home
 title: GenMURK
-description: "GenMURK — a modern, multiplayer text world (MUD/MUSE): a clean-room rebuild on modern architecture, inspired by the TinyMUSE engine and the early-1990s MIT MicroMUSE instance. Build-in-public living docs; the running app lives at genmurk.com."
+description: "GenMURK — a modern, multiplayer text world (MUD/MUSE): a clean-room rebuild on modern architecture, inspired by the TinyMUSE engine and the early-1990s MIT MicroMUSE instance. Build-in-public living docs; the app will live at genmurk.com (platform EPIC5)."
 ---
 
 **GenMURK** is a modern **multiplayer text world** — a MUD/MUSE: many people
@@ -29,9 +29,13 @@ This is the build log, published as it happens. Where things stand today:
 - **The rebuild backlog is set,** ranked highest-risk-first — the sandboxed
   softcode runtime leads.
 - **Architecture direction is recorded,** with one decision honestly still
-  open (how the softcode sandbox is built).
-- **The v1 build is GENMURK-EPIC1** — the project track, now open, building
-  to the ruled scope cut, proven locally and at dev-tier.
+  open (the themed creative direction — the engine is theme-agnostic).
+- **The v1 build is GENMURK-EPIC1, and the build is in.** The sandboxed
+  softcode engine, the world model, presence & speech, authentication, and
+  the faithful layer (locks, mail, moderation, take-backs) are built and
+  proven **locally**: a scripted v1 playable slice runs green against the
+  real stack on every change. Nothing is hosted — the app runs on localhost
+  only until hosting is authorized.
 - **PROD is platform EPIC5.** No application ships from here.
 
 Read on:
@@ -51,7 +55,7 @@ This site is **documentation, not PROD.** It is the *story* of the build.
 - **This site — the build log** — lives at `genmurk.bussetech.com`, a normal
   studio subdomain: static, public, and **secrets-free by construction**.
   There is no runtime, no login, no data here to leak.
-- **The running GenMURK app** lives separately at **`genmurk.com`** — a
+- **The running GenMURK app** will live separately at **`genmurk.com`** — a
   Workers-class runtime with a Supabase database, standing up in **platform
   EPIC5**. The app is never deployed to these Pages.
 

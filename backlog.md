@@ -2,15 +2,22 @@
 layout: page
 title: Rebuild backlog
 eyebrow: The build
-description: "What GenMURK builds next, ranked highest-risk-first — the sandboxed softcode runtime leads. Honest 'what's next' narrative; GENMURK-EPIC1 executes the build, and PROD hosting is platform EPIC5 work."
+description: "The rebuild backlog, ranked highest-risk-first — the sandboxed softcode runtime led. GENMURK-EPIC1 executed it, proven locally; PROD hosting is platform EPIC5 work."
 permalink: /backlog/
 ---
 
-This is the honest **what's next**: the rebuild backlog, ranked. It is a plan,
-not a status board — no operational green/red here. The [requirements](/decomposition/)
-say *what* GenMURK must do; this ranks the order the work happens in.
-**GENMURK-EPIC1 — the project track — executes it;** PROD hosting stays
-platform EPIC5 work.
+This is the rebuild backlog, ranked. It is a plan, not a status board — no
+operational green/red here. The [requirements](/decomposition/) say *what*
+GenMURK must do; this ranks the order the work happened in.
+**GENMURK-EPIC1 — the project track — executed it,** and the plan held:
+items 1–8, 10, and item 12's harness are built and **proven locally**; item
+9's dev-tier half (health endpoint, logging posture, backup expectations,
+secrets discipline) is in place while its apex/zone half stays platform
+EPIC5's (the [decisions](/decisions/) page records each landing). Still
+open: the themed creative direction (item 11, a company decision) and the
+canonical command-set capture behind item 12 — until that capture lands,
+compatibility coverage stays provisional and the onboarding claim is
+withheld. PROD hosting stays platform EPIC5 work.
 
 ## Highest-risk-first
 
@@ -68,7 +75,8 @@ is settled before anything is exposed.
 ## What this site does *not* show
 
 This is a build log, not an ops dashboard. You will not find heartbeat,
-uptime, incident, or pass/fail chips here — the running app and its operational
-signals live at `genmurk.com` (platform EPIC5), on the client portal, not on
-these public Pages. Progress here is narrative: **decomposition done; rebuild
-backlog set; GENMURK-EPIC1 builds; PROD is platform EPIC5.**
+uptime, incident, or pass/fail chips here — when the app is hosted
+(`genmurk.com`, platform EPIC5), its operational signals go to the client
+portal, not to these public Pages. Progress here is narrative:
+**decomposition done; rebuild backlog set; GENMURK-EPIC1 built it, proven
+locally; PROD is platform EPIC5.**
