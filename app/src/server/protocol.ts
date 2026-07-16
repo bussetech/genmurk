@@ -122,7 +122,13 @@ export interface ErrorMessage {
     // softcode in the world (GENMURK-EPIC1-07): a matched `$`-command's run
     // was refused by the sandbox — a typed budget/permission refusal is a
     // VALUE reported to the typist, never a crash (GM-R14)
-    | "SOFTCODE_REFUSED";
+    | "SOFTCODE_REFUSED"
+    // the faithful layer (GENMURK-EPIC1-09): mail (GM-R17), moderation
+    // (GM-R16), recoverable destruction (GM-R9)
+    | "MAILBOX_FULL"
+    | "NO_SUCH_MAIL"
+    | "SILENCED"
+    | "MODERATION_REFUSED";
   text: string;
 }
 
