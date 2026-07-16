@@ -100,19 +100,28 @@ expr    := or
 or      := and ('|' and)*
 and     := unary ('&' unary)*
 unary   := '!' unary | primary
-primary := '(' or ')' | '#'<dbref> | NAME ':' glob | 'true' | 'false'
+primary := '(' or ')' | '#'<dbref> | 'owner' '(' '#'<dbref> ')'
+         | NAME ':' glob | 'true' | 'false'
 ```
 
 - `#N` — passes if the actor **is** object `#N` or **carries** it (holds a key)
+- `owner(#N)` — passes if the actor **owns** object `#N` (GM-R8's ownership
+  predicate — GENMURK-EPIC1-09; a relationship a `#N` key cannot state)
 - `NAME:glob` — passes if the actor's `NAME` attribute matches the glob (`*`/`?`)
 - constants `true` / `false`
 
-Evaluation is pure and bounded; a **malformed lock fails closed** (denies)
-rather than throwing. The world-API exposes `canPickup` / `canEnter` / `canUse`
-hooks; an object with no lock of a kind is open (reference default). Lock
-*gating* of movement lives in the world-API (the engine evaluates locks); the
-DB `world_move` enforces the structural + capability invariants. A
-defense-in-depth DB-side lock eval is a documented later option.
+Evaluation is **bounded by construction** (GM-R14): the source is length-capped,
+the parser refuses nesting past a depth cap, and every evaluated node spends one
+unit of a step budget — so a hostile stored lock terminates fast and a
+**malformed, over-nested, or budget-exhausting lock fails closed** (denies)
+rather than throwing. The glob compiler is backtrack-free, so an `ATTR:*a*a*…`
+predicate cannot go super-linear. The world-API exposes `canPickup` / `canEnter`
+/ `canUse` hooks; an object with no lock of a kind is open (reference default).
+Lock *gating* lives in the world-API (the engine evaluates locks); the DB
+enforces the structural + capability invariants. A defense-in-depth DB-side lock
+eval — for movement (`world_move`) and pickup (`world_get`) — is a documented
+later option. Proof: `test/unit/world-lock.test.ts` +
+`test/unit/world-lock-hostile.test.ts`.
 
 ## 5. Attribute inheritance (GM-R9)
 

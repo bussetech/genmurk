@@ -149,6 +149,8 @@ export class WorldModel implements WorldAPI {
       carrying: (id) =>
         [...this.snap.objects.values()].filter((o) => o.locationId === id).map((o) => o.id),
       attr: (id, name) => resolveAttr(this.snap, id, name)?.value ?? "",
+      // ownership predicate `owner(#N)` (GM-R8): who does #N belong to?
+      ownerOf: (id) => this.snap.objects.get(id)?.ownerId ?? null,
     };
   }
 
