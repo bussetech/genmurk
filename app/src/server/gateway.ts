@@ -123,6 +123,36 @@ export interface LookResult {
   contents: string[];
 }
 
+/** What `look <target>` and `examine <target>` see (GENMURK-EPIC2-02, GM-R22).
+ *  `look` renders the public slice (name + description + contents); `examine`
+ *  additionally renders `ownerName` and — ONLY when the actor controls the
+ *  target (owner or wizard+) or the attribute is `visual` — the attribute set
+ *  and locks. `attrs`/`locks` already hold exactly the visible subset, so the
+ *  dispatcher never re-decides visibility (the world-API's canSee/controls is
+ *  the one authority). A destroyed object is not resolvable, so it never
+ *  reaches here. */
+export interface ExamineResult {
+  ok: true;
+  id: string;
+  name: string;
+  type: string;
+  ownerName: string;
+  description: string;
+  controlled: boolean;
+  attrs: { name: string; value: string }[];
+  locks: { kind: LockKind; expr: string }[];
+  contents: string[];
+}
+export type ExamineOutcome =
+  | ExamineResult
+  | { ok: false; code: "NO_SUCH_TARGET"; reason: string };
+
+/** What `inventory` lists (GENMURK-EPIC2-02, GM-R22): the things the actor is
+ *  carrying (objects located IN the actor), newest-name-sorted. */
+export interface InventoryResult {
+  things: { id: string; name: string }[];
+}
+
 /** A prepared softcode evaluation batch (GENMURK-EPIC1-07): the runs the
  *  world found for a typed line or an event, plus the snapshot-backed
  *  WorldAPI they execute against. The DISPATCHER runs them through the
@@ -190,6 +220,13 @@ export interface WorldGateway {
   leave(playerId: string): Promise<MoveResult>;
   /** Observe the current room (GM-R6). */
   look(playerId: string): Promise<LookResult | null>;
+  /** Observe a named target's detail (GM-R1, GENMURK-EPIC2-02). Read-only over
+   *  the actor's snapshot; visibility (which attrs/locks are returned) is the
+   *  world-API's canSee/controls decision, not the caller's. Serves both
+   *  `look <target>` (public slice) and `examine <target>` (full slice). */
+  examine(playerId: string, targetToken: string): Promise<ExamineOutcome>;
+  /** List the things the actor is carrying (GM-R1, GENMURK-EPIC2-02). */
+  inventory(playerId: string): Promise<InventoryResult>;
 
   // --- building (GM-R7) + locks (GM-R8) ---
   dig(playerId: string, roomName: string): Promise<BuildResult>;
@@ -501,6 +538,53 @@ export class FixtureGateway implements WorldGateway {
     }
     const desc = this.snap.attrs.get(room.id)?.get("DESCRIBE")?.value ?? "";
     return { roomId: room.id, roomName: room.name, description: desc, exits: exits.sort(), contents: contents.sort() };
+  }
+
+  async examine(playerId: string, targetToken: string): Promise<ExamineOutcome> {
+    const r = this.resolveToken(playerId, targetToken);
+    if (r.status !== "ok") {
+      return { ok: false, code: "NO_SUCH_TARGET", reason: `you don't see "${targetToken}" here` };
+    }
+    const t = this.snap.objects.get(r.id)!;
+    const controlled = this.controls(playerId, t.id);
+    const attrBag = this.snap.attrs.get(t.id);
+    const description = attrBag?.get("DESCRIBE")?.value ?? "";
+    // Attribute visibility mirrors the world-API: a controller (owner/wizard+)
+    // sees every attribute; anyone else sees only `visual` ones. DESCRIBE is
+    // surfaced as the description line, not repeated in the attribute list.
+    const attrs: { name: string; value: string }[] = [];
+    if (attrBag) {
+      for (const [name, a] of attrBag) {
+        if (name === "DESCRIBE") continue;
+        if (controlled || a.visual) attrs.push({ name, value: a.value });
+      }
+    }
+    attrs.sort((x, y) => x.name.localeCompare(y.name));
+    // Locks are a controller-only detail (they are the key logic).
+    const locks: { kind: LockKind; expr: string }[] = [];
+    if (controlled) {
+      const lockBag = this.snap.locks.get(t.id);
+      if (lockBag) for (const [kind, expr] of lockBag) locks.push({ kind, expr });
+      locks.sort((x, y) => x.kind.localeCompare(y.kind));
+    }
+    const contents: string[] = [];
+    for (const o of this.snap.objects.values()) {
+      if (o.locationId === t.id && o.type !== "exit") contents.push(o.name);
+    }
+    const ownerName = this.snap.objects.get(t.ownerId)?.name ?? t.ownerId;
+    return {
+      ok: true, id: t.id, name: t.name, type: t.type, ownerName, description,
+      controlled, attrs, locks, contents: contents.sort(),
+    };
+  }
+
+  async inventory(playerId: string): Promise<InventoryResult> {
+    const things: { id: string; name: string }[] = [];
+    for (const o of this.snap.objects.values()) {
+      if (o.locationId === playerId && o.type !== "exit") things.push({ id: o.id, name: o.name });
+    }
+    things.sort((a, b) => a.name.localeCompare(b.name));
+    return { things };
   }
 
   async dig(playerId: string, roomName: string): Promise<BuildResult> {

@@ -12,11 +12,21 @@
 import { readFileSync } from "node:fs";
 import type { BehaviorClass } from "../src/server/verbs.ts";
 
+/** Which slice of the reference's PLAYER-FACING surface an entry belongs to.
+ *  `player` = the everyday verbs any user types (the GM-R22 onboarding core);
+ *  `builder` = the world-construction + privileged-operator verbs a
+ *  building-enabled/wizard user types. Both are IN the GM-R22 bar. The
+ *  reference's wizard/god server-and-database administration commands, its
+ *  channels, and its economy are OUT of the bar and are NOT entries — they are
+ *  accounted for as counts on the capture block (see CaptureStatus). */
+export type Tier = "player" | "builder";
+
 export interface CommandEntry {
   verb: string;
   syntax: string;
   example: string;
   behavior: BehaviorClass;
+  tier: Tier;
   /** GM-Rn requirement of record, or `capture:<id>` once the capture lands. */
   reference_tag: string;
   provisional: boolean;
@@ -29,6 +39,17 @@ export interface CaptureStatus {
   landed: boolean;
   issue: string;
   note: string;
+  /** provenance of the landed capture (features-doc + historic-user review). */
+  source: string;
+  /** total built-in commands the reference parser recognizes (the honest
+   *  denominator for the out-of-bar accounting). 0 until the capture lands. */
+  referenceTotal: number;
+  /** reference commands OUT of the GM-R22 player-facing bar, by class. Their
+   *  sum + the capture-traced entries must equal referenceTotal (the runner
+   *  asserts it — nothing is silently dropped). */
+  excludedAdmin: number;
+  excludedChannels: number;
+  excludedEconomy: number;
 }
 
 export interface CommandSurface {
@@ -41,6 +62,7 @@ const SCALAR_KEYS = new Set([
   "syntax",
   "example",
   "behavior",
+  "tier",
   "reference_tag",
   "provisional",
   "implemented",
@@ -48,6 +70,11 @@ const SCALAR_KEYS = new Set([
   "landed",
   "issue",
   "note",
+  "source",
+  "reference_total",
+  "excluded_admin",
+  "excluded_channels",
+  "excluded_economy",
 ]);
 
 function parseScalar(raw: string): string | boolean {
@@ -56,6 +83,15 @@ function parseScalar(raw: string): string | boolean {
   if (v === "false") return false;
   if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) return v.slice(1, -1);
   return v;
+}
+
+/** Coerce a capture scalar to a non-negative integer (0 when absent). */
+function captureInt(m: Record<string, string | boolean>, k: string): number {
+  const v = m[k];
+  if (v === undefined) return 0;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0) throw new Error(`gm-r22 surface: capture.${k} must be a non-negative integer`);
+  return n;
 }
 
 /** Parse the minimal YAML subset. Full-line comments and blank lines are
@@ -114,6 +150,11 @@ export function parseSurface(text: string): CommandSurface {
       landed: capture["landed"] === true,
       issue: String(capture["issue"] ?? ""),
       note: String(capture["note"] ?? ""),
+      source: String(capture["source"] ?? ""),
+      referenceTotal: captureInt(capture, "reference_total"),
+      excludedAdmin: captureInt(capture, "excluded_admin"),
+      excludedChannels: captureInt(capture, "excluded_channels"),
+      excludedEconomy: captureInt(capture, "excluded_economy"),
     },
     commands: commands.map((c, i) => coerceEntry(c, i)),
   };
@@ -126,11 +167,16 @@ function coerceEntry(c: Record<string, string | boolean>, i: number): CommandEnt
     return v;
   };
   const bool = (k: string): boolean => c[k] === true;
+  const tier = str("tier");
+  if (tier !== "player" && tier !== "builder") {
+    throw new Error(`gm-r22 surface: entry ${i} tier must be "player" or "builder", got "${tier}"`);
+  }
   return {
     verb: str("verb"),
     syntax: str("syntax"),
     example: str("example"),
     behavior: str("behavior") as BehaviorClass,
+    tier,
     reference_tag: str("reference_tag"),
     provisional: bool("provisional"),
     implemented: bool("implemented"),

@@ -161,6 +161,20 @@ export class RoomCoordinator {
     return names.sort();
   }
 
+  /** The server-wide connected-player roster (GM-R22 `who`, GENMURK-EPIC2-02):
+   *  every connected session's player and the room they are in, name-sorted.
+   *  Presence is the coordinator's — the world of record is not consulted (an
+   *  offline player is simply absent). One line per SESSION, so a player with
+   *  two connections shows twice, honestly (the reference `who` lists
+   *  connections). */
+  online(): { name: string; room: string }[] {
+    const rows: { name: string; room: string }[] = [];
+    for (const s of this.sessions.values()) {
+      rows.push({ name: s.playerName, room: s.roomName });
+    }
+    return rows.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   session(sessionId: string): Readonly<Session> | undefined {
     return this.sessions.get(sessionId);
   }
