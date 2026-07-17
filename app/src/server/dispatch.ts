@@ -26,7 +26,7 @@
 
 import type { RunOutcome, RunRequest, SoftcodeEngine } from "../engine/types.ts";
 import type { RoomCoordinator } from "./coordinator.ts";
-import type { SoftcodeBatch, WorldGateway } from "./gateway.ts";
+import type { ExamineResult, SoftcodeBatch, WorldGateway } from "./gateway.ts";
 import type { ServerMessage } from "./protocol.ts";
 import { SOFTCODE_RUN_BUDGET, type TriggerKind } from "./softcode.ts";
 import { parseCommand, type MailAction } from "./verbs.ts";
@@ -168,6 +168,13 @@ export async function dispatch(deps: DispatchDeps, line: string): Promise<void> 
     case "look": {
       const pid = playerId();
       if (!pid) return;
+      // `look <target>` observes a named thing (public slice); `look` alone
+      // observes the room. Read-only, budget-free (a fixed built-in).
+      if (cmd.target !== undefined) {
+        const seen = await gateway.examine(pid, cmd.target);
+        if (!seen.ok) return send({ type: "error", code: seen.code, text: seen.reason });
+        return send({ type: "info", text: renderLookAt(seen) });
+      }
       const view = await gateway.look(pid);
       const s = coordinator.session(sessionId);
       if (!view) {
@@ -175,6 +182,29 @@ export async function dispatch(deps: DispatchDeps, line: string): Promise<void> 
         return;
       }
       send({ type: "info", text: renderLook(view, coordinator.occupants(view.roomId)) });
+      return;
+    }
+    case "examine": {
+      const pid = playerId();
+      if (!pid) return;
+      const seen = await gateway.examine(pid, cmd.target);
+      if (!seen.ok) return send({ type: "error", code: seen.code, text: seen.reason });
+      send({ type: "info", text: renderExamine(seen) });
+      return;
+    }
+    case "inventory": {
+      const pid = playerId();
+      if (!pid) return;
+      const inv = await gateway.inventory(pid);
+      const names = inv.things.map((t) => t.name);
+      send({ type: "info", text: names.length ? `You are carrying: ${names.join(", ")}.` : "You are carrying nothing." });
+      return;
+    }
+    case "who": {
+      // Presence roster (GM-R1): the coordinator's connected sessions. No world
+      // read — an offline player is simply absent.
+      const rows = coordinator.online();
+      send({ type: "info", text: renderWho(rows) });
       return;
     }
 
@@ -416,5 +446,33 @@ function renderLook(
   if (view.contents.length) lines.push(`Contents: ${view.contents.join(", ")}`);
   if (view.exits.length) lines.push(`Exits: ${view.exits.join(", ")}`);
   lines.push(`Here: ${occupants.join(", ")}`);
+  return lines.join("\n");
+}
+
+/** `look <target>` — the public slice: name, description, visible contents. */
+function renderLookAt(x: ExamineResult): string {
+  const lines = [`${x.name} (${x.id})`];
+  lines.push(x.description || "You see nothing special.");
+  if (x.contents.length) lines.push(`Contents: ${x.contents.join(", ")}`);
+  return lines.join("\n");
+}
+
+/** `examine <target>` — the full slice: adds owner and, for a controller, the
+ *  attribute set and locks. The gateway already filtered to what the actor may
+ *  see, so this only formats. */
+function renderExamine(x: ExamineResult): string {
+  const lines = [`${x.name} (${x.id}) [${x.type}]`, `Owner: ${x.ownerName}`];
+  if (x.description) lines.push(x.description);
+  if (x.contents.length) lines.push(`Contents: ${x.contents.join(", ")}`);
+  for (const l of x.locks) lines.push(`Lock (${l.kind}): ${l.expr}`);
+  for (const a of x.attrs) lines.push(`${a.name}: ${a.value}`);
+  return lines.join("\n");
+}
+
+/** `who` — the connected-player roster (name + room), plus a count line. */
+function renderWho(rows: { name: string; room: string }[]): string {
+  if (!rows.length) return "No one is connected.";
+  const lines = rows.map((r) => `${r.name} — ${r.room}`);
+  lines.push(`${rows.length} connected.`);
   return lines.join("\n");
 }

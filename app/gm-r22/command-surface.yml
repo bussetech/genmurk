@@ -1,231 +1,514 @@
-# GM-R22 — the player-facing command surface, AS DATA.
+# GM-R22 — the player-facing command surface, AS DATA. The capture has LANDED.
 #
 # GM-R22 (STEERCO minimum bar): GenMURK supports at minimum the same end-user
 # command set — verb names and invocation syntax — as the TinyMUSE/MicroMUSE
 # reference, so historic users onboard with minimal relearning. The canonical
-# reference command list is an AIRGAPPED PRESERVATION CAPTURE (genmurk#9), not
-# yet landed. When it lands it DROPS IN AS THIS DATA: each reference command
-# becomes one `commands:` entry, `capture.landed` flips to true, and the
-# conformance runner (gm-r22/conformance.ts) measures real coverage.
+# reference command list — the airgapped preservation capture (genmurk#9) — has
+# now been reviewed and DROPPED IN HERE (GENMURK-EPIC2-02): each entry traces to
+# a reference command (`reference_tag: capture:<handler>`) or to a GM-Rn
+# requirement of record, `capture.landed` is true, and the conformance runner
+# (gm-r22/conformance.ts) measures REAL coverage against the reference.
 #
-# UNTIL THEN every entry below is `provisional: true` and its `reference_tag`
-# is a GM-Rn requirement of record — NOT a command remembered from the wider
-# MUSH family. That is the clean-room/provenance line: the runner REJECTS any
-# entry whose name traces to neither the capture nor a GM-Rn requirement.
+# THE REFERENT AND THE BAR. The reference parser recognizes 140 built-in
+# commands (30 no-prefix, 11 `+`, 99 `@`; source below). GM-R22's bar is the
+# PLAYER-FACING set — the verbs a user (player or builder) types to play and to
+# build. Those are the entries below, split by `tier`:
+#   - tier: player  — everyday verbs any user types (say/pose/look/go/get/…).
+#   - tier: builder — world construction + privileged operator verbs a
+#                     building-enabled/wizard user types (@dig/@open/@lock/…,
+#                     @announce/@boot, and GenMURK's moderation model).
+# The reference's remaining commands are OUT of the player-facing bar and are
+# accounted for as counts on the capture block (excluded_admin/channels/
+# economy), NOT reproduced as in-world verbs: the wizard/god server-and-database
+# administration set (@nuke/@shutdown/@reboot/@dbck/@config/…) is dev-tier ops
+# (GM-R19) and the Studio Portal, never an in-world god verb; channels and
+# economy are out of this epic's scope. The runner ASSERTS that the traced
+# entries + the excluded counts sum to the reference total — nothing is
+# silently dropped, and the number is honest in both directions.
 #
-# `behavior` is the class the command must dispatch to (verbs.ts BehaviorClass);
-# the runner drives `example` through the REAL parser and asserts the resulting
-# verb resolves to this class. `implemented: true` means the surface is wired in
-# this build (a parse/route failure on it is a regression, not a coverage gap);
-# a future capture entry we have not built yet is `implemented: false` and
-# reports as an honest coverage GAP, never a pass.
+# FAITHFUL FORMS. Examples use the reference's own forms so the parser
+# reconciliation is exercised: building/admin verbs are `@`-prefixed (@dig),
+# mail is `+mail`, speech uses `pose`/`"`/`:`/`;`. GenMURK also keeps the bare
+# forms (dig, mail, emote) as documented conveniences (decisions.md /
+# /compatibility/). `behavior` is the class the command must dispatch to
+# (verbs.ts BehaviorClass); the runner drives `example` through the REAL parser
+# and asserts the resulting verb resolves to this class. `implemented: false`
+# reports as an honest coverage GAP (never a pass); the gap list is this epic's
+# faithful-surface work order.
 
 capture:
-  landed: false
+  landed: true
   issue: genmurk#9
-  note: "canonical TinyMUSE/MicroMUSE command capture is an airgapped preservation task, not yet landed; coverage below is PROVISIONAL against GM-Rn only"
+  source: "TinyMUSE built-in command parser (process_command, src/game.c; single-char tokens src/config.h); provenance: reference features-doc + historic-user review, 2026-07-16"
+  reference_total: 140
+  excluded_admin: 85
+  excluded_channels: 3
+  excluded_economy: 2
+  note: "Capture landed GENMURK-EPIC2-02. 53 player-facing entries below (50 traced to reference commands, 3 GenMURK moderation-model verbs traced to GM-R16). Out of the bar: 90 reference commands — 85 wizard/god administration (incl. slay, +cmdav) + 3 channels (+channel/+com/+ctitle) + 2 economy (money/score) — accounted, not reproduced as in-world verbs. Minimum-bar NOT yet met; round-2 gap list ranked in the handoff."
 
 commands:
-  # --- presence & speech (GM-R2 / GM-R3) ---
+  # ============================ PLAYER TIER ============================
+  # --- speech (GM-R2) ---
   - verb: say
-    syntax: "say <message>"
+    syntax: "say <message>   (token: doublequote+message)"
     example: "say hello everyone"
     behavior: speech
-    reference_tag: GM-R2
-    provisional: true
+    tier: player
+    reference_tag: capture:do_say
+    provisional: false
     implemented: true
-  - verb: emote
-    syntax: "emote <action>"
-    example: "emote waves a hand"
+  - verb: pose
+    syntax: "pose <action>   (tokens: :<action> space-form, ;<action> no-space)"
+    example: "pose waves a hand"
     behavior: speech
-    reference_tag: GM-R2
-    provisional: true
+    tier: player
+    reference_tag: capture:do_pose
+    provisional: false
     implemented: true
+    divergence: "the faithful verb is `pose` (`emote` is kept as a GenMURK convenience alias; both share one speech path). The `;` no-space possessive token currently renders with standard pose spacing — the exact possessive spacing is a documented minor divergence, safe behavior (correct attribution) preserved."
   - verb: page
     syntax: "page <player> <message>"
     example: "page Bob are you there"
     behavior: directed
-    reference_tag: GM-R3
-    provisional: true
+    tier: player
+    reference_tag: capture:do_page
+    provisional: false
     implemented: true
   - verb: whisper
     syntax: "whisper <player> <message>"
     example: "whisper Bob psst over here"
     behavior: directed
-    reference_tag: GM-R3
-    provisional: true
+    tier: player
+    reference_tag: capture:do_whisper
+    provisional: false
     implemented: true
-  - verb: announce
-    syntax: "announce <message>"
-    example: "announce the server reboots at noon"
-    behavior: broadcast
-    reference_tag: GM-R3
-    provisional: true
-    implemented: true
+  - verb: to
+    syntax: "to <player> <message>   (token: '<message>)"
+    example: "to Bob nicely done"
+    behavior: directed
+    tier: player
+    reference_tag: capture:do_to
+    provisional: false
+    implemented: false
+  - verb: gripe
+    syntax: "gripe <message>"
+    example: "gripe the north exit feels broken"
+    behavior: directed
+    tier: player
+    reference_tag: capture:do_gripe
+    provisional: false
+    implemented: false
 
-  # --- movement (GM-R6) + observing (GM-R1/R6) ---
-  - verb: go
-    syntax: "go <exit>"
-    example: "go north"
+  # --- movement (GM-R6) ---
+  - verb: goto
+    syntax: "goto <exit>"
+    example: "goto north"
     behavior: movement
-    reference_tag: GM-R6
-    provisional: true
+    tier: player
+    reference_tag: capture:do_move
+    provisional: false
+    implemented: true
+    divergence: "the faithful movement verbs are `goto`/`move`; GenMURK also accepts bare `go` as a convenience alias (same movement path)."
+  - verb: move
+    syntax: "move <exit>"
+    example: "move north"
+    behavior: movement
+    tier: player
+    reference_tag: capture:do_move
+    provisional: false
     implemented: true
   - verb: enter
     syntax: "enter <thing>"
     example: "enter cabinet"
     behavior: movement
-    reference_tag: GM-R6
-    provisional: true
+    tier: player
+    reference_tag: capture:do_enter
+    provisional: false
     implemented: true
   - verb: leave
     syntax: "leave"
     example: "leave"
     behavior: movement
-    reference_tag: GM-R6
-    provisional: true
+    tier: player
+    reference_tag: capture:do_leave
+    provisional: false
     implemented: true
+  - verb: home
+    syntax: "home"
+    example: "home"
+    behavior: movement
+    tier: player
+    reference_tag: capture:do_move
+    provisional: false
+    implemented: false
+  - verb: follow
+    syntax: "follow <player>"
+    example: "follow Alice"
+    behavior: movement
+    tier: player
+    reference_tag: capture:do_follow
+    provisional: false
+    implemented: false
+  - verb: join
+    syntax: "join <player>"
+    example: "join Alice"
+    behavior: movement
+    tier: player
+    reference_tag: capture:do_join
+    provisional: false
+    implemented: false
+  - verb: summon
+    syntax: "summon <player>"
+    example: "summon Bob"
+    behavior: movement
+    tier: player
+    reference_tag: capture:do_summon
+    provisional: false
+    implemented: false
+
+  # --- observing (GM-R1) ---
   - verb: look
-    syntax: "look"
+    syntax: "look  |  look <target>   (alias: l)"
     example: "look"
     behavior: look
-    reference_tag: GM-R1
-    provisional: true
+    tier: player
+    reference_tag: capture:do_look_at
+    provisional: false
     implemented: true
+  - verb: read
+    syntax: "read <target>"
+    example: "read the notice"
+    behavior: look
+    tier: player
+    reference_tag: capture:do_look_at
+    provisional: false
+    implemented: true
+    divergence: "`read` is the reference's undocumented alias of `look`; GenMURK routes it to the same observe path."
+  - verb: examine
+    syntax: "examine <target>   (alias: ex)"
+    example: "examine lantern"
+    behavior: inspect
+    tier: player
+    reference_tag: capture:do_examine
+    provisional: false
+    implemented: true
+    divergence: "examine shows the FULL attribute set and locks only to a controller (owner or wizard+); a non-controller sees the public slice (name, owner, description, `visual` attributes) — the world-API's canSee/controls is the one visibility authority (safe behavior wins)."
+  - verb: inventory
+    syntax: "inventory   (aliases: inv, i)"
+    example: "inventory"
+    behavior: inspect
+    tier: player
+    reference_tag: capture:do_inventory
+    provisional: false
+    implemented: true
+  - verb: who
+    syntax: "who"
+    example: "who"
+    behavior: roster
+    tier: player
+    reference_tag: capture:dump_users
+    provisional: false
+    implemented: true
+    divergence: "who lists CONNECTED sessions (presence is the coordinator's), name-sorted with a count; the reference's idle/on-since columns are a later detail. An offline player is simply absent."
 
-  # --- building (GM-R7) + locks (GM-R8) ---
-  - verb: dig
-    syntax: "dig <RoomName>"
-    example: "dig The Kitchen"
-    behavior: build
-    reference_tag: GM-R7
-    provisional: true
-    implemented: true
-  - verb: open
-    syntax: "open <exit> = <destination>"
-    example: "open north = The Kitchen"
-    behavior: build
-    reference_tag: GM-R7
-    provisional: true
-    implemented: true
-  - verb: create
-    syntax: "create <ThingName>"
-    example: "create a brass lantern"
-    behavior: build
-    reference_tag: GM-R7
-    provisional: true
-    implemented: true
-  - verb: set
-    syntax: "set <target> = <ATTR>:<value>"
-    example: "set lantern = mood:warmly glowing"
-    behavior: build
-    reference_tag: GM-R7
-    provisional: true
-    implemented: true
-  - verb: name
-    syntax: "name <target> = <NewName>"
-    example: "name lantern = brass lamp"
-    behavior: build
-    reference_tag: GM-R7
-    provisional: true
-    implemented: true
-  - verb: describe
-    syntax: "describe <target> = <text>"
-    example: "describe here = A warm and cluttered kitchen"
-    behavior: build
-    reference_tag: GM-R7
-    provisional: true
-    implemented: true
-  - verb: lock
-    syntax: "lock <enter|use|pickup> <target> = <expr>"
-    example: "lock use north = #1"
-    behavior: build
-    reference_tag: GM-R7
-    provisional: true
-    implemented: true
-    divergence: "the lock EXPRESSION grammar is a bounded safe subset (GM-R14) — boolean ops, `#N` keys, `owner(#N)` ownership, and `ATTR:glob`; richer reference key forms are rejected outright, never approximated, and evaluation is length/depth/step-bounded (safe behavior wins, documented for the returning user)"
-
-  # --- containment: take a thing from the room / drop it (GM-R6 + pickup lock GM-R8) ---
+  # --- handling things (GM-R6 + pickup lock GM-R8) ---
   - verb: get
-    syntax: "get <thing>"
-    example: "get a brass lantern"
+    syntax: "get <thing>   (alias: take)"
+    example: "get lantern"
     behavior: containment
-    reference_tag: GM-R8
-    provisional: true
+    tier: player
+    reference_tag: capture:do_get
+    provisional: false
     implemented: true
     divergence: "the pickup lock (GM-R8) is evaluated on the world-API before the move, like exit `use` locks; a defense-in-depth DB-side re-evaluation is a documented later step (dependency register). An unlocked thing is takeable by anyone co-located (reference default-open)."
-  - verb: drop
-    syntax: "drop <thing>"
-    example: "drop a brass lantern"
+  - verb: take
+    syntax: "take <thing>"
+    example: "take lantern"
     behavior: containment
-    reference_tag: GM-R6
-    provisional: true
+    tier: player
+    reference_tag: capture:do_get
+    provisional: false
     implemented: true
+  - verb: drop
+    syntax: "drop <thing>   (alias: throw)"
+    example: "drop lantern"
+    behavior: containment
+    tier: player
+    reference_tag: capture:do_drop
+    provisional: false
+    implemented: true
+  - verb: throw
+    syntax: "throw <thing>"
+    example: "throw lantern"
+    behavior: containment
+    tier: player
+    reference_tag: capture:do_drop
+    provisional: false
+    implemented: true
+  - verb: give
+    syntax: "give <player> = <thing>"
+    example: "give Bob = lantern"
+    behavior: containment
+    tier: player
+    reference_tag: capture:do_give
+    provisional: false
+    implemented: false
+  - verb: use
+    syntax: "use <thing>"
+    example: "use lever"
+    behavior: interact
+    tier: player
+    reference_tag: capture:do_use
+    provisional: false
+    implemented: false
 
-  # --- recoverable destruction (GM-R9) ---
-  - verb: destroy
-    syntax: "destroy <target>"
-    example: "destroy old sign"
-    behavior: lifecycle
-    reference_tag: GM-R9
-    provisional: true
-    implemented: true
-  - verb: undestroy
-    syntax: "undestroy <#dbref>"
-    example: "undestroy #42"
-    behavior: lifecycle
-    reference_tag: GM-R9
-    provisional: true
-    implemented: true
-    divergence: "a destroyed object has left the actor's snapshot, so recovery is by `#dbref` (which the destroy confirmation prints), not by name — the honest consequence of RLS hiding the bin from non-wizards (safe behavior wins)"
+  # --- text / help (GM-R1) ---
+  - verb: help
+    syntax: "help [<topic>]"
+    example: "help building"
+    behavior: look
+    tier: player
+    reference_tag: capture:do_text
+    provisional: false
+    implemented: false
+  - verb: news
+    syntax: "news"
+    example: "news latest"
+    behavior: look
+    tier: player
+    reference_tag: capture:do_text
+    provisional: false
+    implemented: false
 
   # --- in-world mail (GM-R17) ---
   - verb: mail
-    syntax: "mail <player> = <message>  |  mail  |  mail read <n>  |  mail delete <n>"
-    example: "mail Bob = are you there"
+    syntax: "+mail <player> = <message>  |  +mail  |  +mail read <n>  |  +mail delete <n>"
+    example: "+mail Bob = are you there"
     behavior: mail
-    reference_tag: GM-R17
-    provisional: true
+    tier: player
+    reference_tag: capture:do_mail
+    provisional: false
     implemented: true
-    divergence: "v1 mail is body-only from the command line; the subject-line syntax the reference used is a capture question (the RPC carries a subject for later). Mail is quota-bounded (a capped inbox) and wizard-readable for moderation."
+    divergence: "the faithful form is `+mail` (bare `mail` kept as a convenience). v1 mail is body-only from the command line; the subject-line syntax the reference used is a later detail (the RPC carries a subject). Mail is quota-bounded (a capped inbox) and wizard-readable for moderation."
 
-  # --- moderation (GM-R16) ---
+  # --- presence status / session info (`+` player family) ---
+  - verb: +away
+    syntax: "+away [<message>]"
+    example: "+away lunch"
+    behavior: roster
+    tier: player
+    reference_tag: capture:do_away
+    provisional: false
+    implemented: false
+  - verb: +haven
+    syntax: "+haven"
+    example: "+haven"
+    behavior: roster
+    tier: player
+    reference_tag: capture:do_haven
+    provisional: false
+    implemented: false
+  - verb: +idle
+    syntax: "+idle [<message>]"
+    example: "+idle away from keyboard"
+    behavior: roster
+    tier: player
+    reference_tag: capture:do_idle
+    provisional: false
+    implemented: false
+  - verb: +laston
+    syntax: "+laston <player>"
+    example: "+laston Bob"
+    behavior: roster
+    tier: player
+    reference_tag: capture:do_laston
+    provisional: false
+    implemented: false
+  - verb: +uptime
+    syntax: "+uptime"
+    example: "+uptime"
+    behavior: roster
+    tier: player
+    reference_tag: capture:do_uptime
+    provisional: false
+    implemented: false
+  - verb: +version
+    syntax: "+version"
+    example: "+version"
+    behavior: roster
+    tier: player
+    reference_tag: capture:do_version
+    provisional: false
+    implemented: false
+
+  # ============================ BUILDER TIER ============================
+  # --- construction (GM-R7); faithful `@`-prefixed forms, bare kept convenient
+  - verb: "@dig"
+    syntax: "@dig <RoomName>"
+    example: "@dig The Kitchen"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_dig
+    provisional: false
+    implemented: true
+  - verb: "@open"
+    syntax: "@open <exit> = <destination>"
+    example: "@open north = The Kitchen"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_open
+    provisional: false
+    implemented: true
+  - verb: "@create"
+    syntax: "@create <ThingName>"
+    example: "@create a brass lantern"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_create
+    provisional: false
+    implemented: true
+  - verb: "@describe"
+    syntax: "@describe <target> = <text>"
+    example: "@describe here = A warm and cluttered kitchen"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_describe
+    provisional: false
+    implemented: true
+  - verb: "@name"
+    syntax: "@name <target> = <NewName>"
+    example: "@name lantern = brass lamp"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_name
+    provisional: false
+    implemented: true
+  - verb: "@set"
+    syntax: "@set <target> = <ATTR>:<value>"
+    example: "@set lantern = mood:warmly glowing"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_set
+    provisional: false
+    implemented: true
+  - verb: "@lock"
+    syntax: "@lock <enter|use|pickup> <target> = <expr>"
+    example: "@lock use north = #1"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_lock
+    provisional: false
+    implemented: true
+    divergence: "the lock EXPRESSION grammar is a bounded safe subset (GM-R14) — boolean ops, `#N` keys, `owner(#N)` ownership, and `ATTR:glob`; richer reference key forms are rejected outright, never approximated, and evaluation is length/depth/step-bounded and fails closed (safe behavior wins)."
+  - verb: "@unlock"
+    syntax: "@unlock <enter|use|pickup> <target>"
+    example: "@unlock use north"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_unlock
+    provisional: false
+    implemented: false
+  - verb: "@link"
+    syntax: "@link <exit> = <destination>"
+    example: "@link north = #42"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_link
+    provisional: false
+    implemented: false
+  - verb: "@unlink"
+    syntax: "@unlink <exit>"
+    example: "@unlink north"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_unlink
+    provisional: false
+    implemented: false
+  - verb: "@clone"
+    syntax: "@clone <thing>"
+    example: "@clone lantern"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_clone
+    provisional: false
+    implemented: false
+  - verb: "@trigger"
+    syntax: "@trigger <target> = <ATTR>"
+    example: "@trigger door = ONOPEN"
+    behavior: build
+    tier: builder
+    reference_tag: capture:do_trigger
+    provisional: false
+    implemented: false
+
+  # --- recoverable destruction (GM-R9) ---
+  - verb: "@destroy"
+    syntax: "@destroy <target>"
+    example: "@destroy old sign"
+    behavior: lifecycle
+    tier: builder
+    reference_tag: capture:do_recycle
+    provisional: false
+    implemented: true
+  - verb: "@undestroy"
+    syntax: "@undestroy <#dbref>"
+    example: "@undestroy #42"
+    behavior: lifecycle
+    tier: builder
+    reference_tag: capture:do_undestroy
+    provisional: false
+    implemented: true
+    divergence: "a destroyed object has left the actor's snapshot, so recovery is by `#dbref` (which the destroy confirmation prints), not by name — the honest consequence of RLS hiding the bin from non-wizards (safe behavior wins)."
+
+  # --- privileged operator surface (GM-R3 / GM-R16) ---
+  - verb: "@announce"
+    syntax: "@announce <message>"
+    example: "@announce the server reboots at noon"
+    behavior: broadcast
+    tier: builder
+    reference_tag: capture:do_announce
+    provisional: false
+    implemented: true
+    divergence: "announce is privilege-gated (the reference's `@announce` is a wizard command); an unprivileged actor is refused (safe behavior wins)."
+  - verb: "@boot"
+    syntax: "@boot <player> [= <reason>]"
+    example: "@boot Bob = spamming the room"
+    behavior: moderation
+    tier: builder
+    reference_tag: capture:do_boot
+    provisional: false
+    implemented: true
+  # GenMURK moderation MODEL (GM-R16) — not distinct reference commands, so
+  # these trace to the requirement of record, not to a capture handler.
   - verb: warn
     syntax: "warn <player> = <reason>"
     example: "warn Bob = please be civil"
     behavior: moderation
+    tier: builder
     reference_tag: GM-R16
-    provisional: true
-    implemented: true
-  - verb: boot
-    syntax: "boot <player> [= <reason>]"
-    example: "boot Bob = spamming the channel"
-    behavior: moderation
-    reference_tag: GM-R16
-    provisional: true
+    provisional: false
     implemented: true
   - verb: silence
     syntax: "silence <player> [= <minutes>]"
     example: "silence Bob = 30"
     behavior: moderation
+    tier: builder
     reference_tag: GM-R16
-    provisional: true
+    provisional: false
     implemented: true
-    divergence: "moderation cannot be turned sideways or upward — God #1 is never a target and a wizard may not moderate an equal-or-higher tier (only a god may reach a wizard); the safe behavior wins (GM-R14/R15)"
+    divergence: "moderation cannot be turned sideways or upward — God #1 is never a target and a wizard may not moderate an equal-or-higher tier (only a god may reach a wizard); every act is audited; the safe behavior wins (GM-R14/R15)."
   - verb: unsilence
     syntax: "unsilence <player>"
     example: "unsilence Bob"
     behavior: moderation
+    tier: builder
     reference_tag: GM-R16
-    provisional: true
+    provisional: false
     implemented: true
 
   # --- NOT an entry: the $-command MECHANISM (GENMURK-EPIC1-07) -------------
   # Attribute-attached softcode commands (`$<pattern>:<program>`) are a
   # user-defined surface, not a fixed verb, so they cannot be a `commands:`
-  # entry the runner drives through the parser. The `$` sigil is GM-R11/D3
-  # requirement-of-record vocabulary; the `:` separator and any reference
-  # conventions around user-defined command syntax are CAPTURE QUESTIONS.
-  # Recorded divergence class already in force: built-ins always win — user
-  # softcode cannot shadow a fixed verb (the safe behavior; see decisions.md
-  # and /compatibility/).
+  # entry the runner drives through the parser. Recorded divergence class in
+  # force: built-ins always win — user softcode cannot shadow a fixed verb
+  # (the safe behavior; see decisions.md and /compatibility/).

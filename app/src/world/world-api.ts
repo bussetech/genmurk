@@ -59,6 +59,12 @@ export class WorldModel implements WorldAPI {
     return !!t && t.ownerId === actorId;
   }
 
+  /** Public control predicate (owner or wizard+), the one authority the
+   *  command gateways reuse for `examine` visibility (GENMURK-EPIC2-02). */
+  controlsTarget(actorId: string, targetId: string): boolean {
+    return this.controls(actorId, targetId);
+  }
+
   // --------------------------------------------------------- WorldAPI
 
   getAttr(actor: string, target: string, attr: string): string | WorldRefusal {

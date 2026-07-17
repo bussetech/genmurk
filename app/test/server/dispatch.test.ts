@@ -192,3 +192,79 @@ test("quit signals a disconnect", async () => {
   await alice.run("quit");
   assert.equal(alice.disconnected, true);
 });
+
+// ---- GENMURK-EPIC2-02: the gap-fill verbs (GM-R22 round 1) ----------------
+
+test("inventory lists what you carry; examine and look <target> show a thing (GM-R22)", async () => {
+  const { seat } = await world();
+  const alice = await seat("Alice"); // wizard/builder — may create
+  await alice.run("create a brass lantern");
+  await alice.run("set lantern = glow:soft amber");
+
+  await alice.run("inventory");
+  assert.match(alice.infos().at(-1) ?? "", /carrying: .*brass lantern/);
+
+  // examine (owner → full slice: owner line + the attribute)
+  await alice.run("examine lantern");
+  const ex = alice.infos().at(-1) ?? "";
+  assert.match(ex, /brass lantern/);
+  assert.match(ex, /Owner:/);
+  assert.match(ex, /GLOW: soft amber/);
+
+  // look <target> — the public slice; a missing thing is a clean error
+  await alice.run("describe lantern = a dented brass lantern");
+  await alice.run("look lantern");
+  assert.match(alice.infos().at(-1) ?? "", /a dented brass lantern/);
+
+  alice.clear();
+  await alice.run("examine nonesuch");
+  const err = alice.received.find((m) => m.type === "error");
+  assert.ok(err && err.type === "error" && err.code === "NO_SUCH_TARGET");
+});
+
+test("inventory is honest when empty", async () => {
+  const { seat } = await world();
+  const bob = await seat("Bob");
+  await bob.run("inventory");
+  assert.match(bob.infos().at(-1) ?? "", /carrying nothing/);
+});
+
+test("who lists every connected session server-wide, across rooms (GM-R22)", async () => {
+  const { seat } = await world();
+  const alice = await seat("Alice"); // Town
+  await seat("Bob"); // Town
+  await seat("Zoe"); // Cave — a different room; who is server-wide
+  await alice.run("who");
+  const text = alice.infos().at(-1) ?? "";
+  assert.match(text, /Alice/);
+  assert.match(text, /Bob/);
+  assert.match(text, /Zoe — Echo Cave/); // includes the room
+  assert.match(text, /3 connected/);
+});
+
+test("pose and the speech tokens route to the emote path (GM-R22 faithful forms)", async () => {
+  const { seat } = await world();
+  const alice = await seat("Alice");
+  const bob = await seat("Bob"); // co-located observer
+  bob.clear();
+
+  await alice.run("pose waves a hand");
+  await alice.run(":grins");
+  await alice.run('"hi everyone');
+
+  const kinds = bob.events().map((e) => e.kind);
+  // two poses (pose + `:` token) as emote, one say (`"` token)
+  assert.equal(kinds.filter((k) => k === "emote").length, 2);
+  assert.equal(kinds.filter((k) => k === "say").length, 1);
+});
+
+test("faithful @-prefixed building verbs route like the bare forms (GM-R22)", async () => {
+  const { gw, seat } = await world();
+  const alice = await seat("Alice"); // wizard/builder
+  await alice.run("@dig The Cellar");
+  assert.ok(alice.infos().some((t) => /Dug The Cellar/.test(t)));
+  await alice.run("@create a clay pot");
+  assert.ok(alice.infos().some((t) => /Created a clay pot/.test(t)));
+  // the thing really exists in the world of record, by the faithful path
+  assert.equal((await gw.resolve(alice.playerId, "pot")).status, "ok");
+});

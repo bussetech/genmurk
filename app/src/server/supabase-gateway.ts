@@ -39,8 +39,10 @@ import type {
   BuildErrorCode,
   BuildResult,
   DestroyResult,
+  ExamineOutcome,
   FaithfulErrorCode,
   GatewayPlayer,
+  InventoryResult,
   LookResult,
   MailDeleteResult,
   MailReadResult,
@@ -270,6 +272,55 @@ export class SupabaseGateway implements WorldGateway {
     }
     const desc = l.snapshot.attrs.get(room.id)?.get("DESCRIBE")?.value ?? "";
     return { roomId: room.id, roomName: room.name, description: desc, exits: exits.sort(), contents: contents.sort() };
+  }
+
+  async examine(playerId: string, targetToken: string): Promise<ExamineOutcome> {
+    const l = await this.loadFor(playerId);
+    if (!l) return { ok: false, code: "NO_SUCH_TARGET", reason: "session not bound" };
+    const r = l.world.resolveName(playerId, targetToken);
+    if (r.status !== "ok") {
+      return { ok: false, code: "NO_SUCH_TARGET", reason: `you don't see "${targetToken}" here` };
+    }
+    const t = l.snapshot.objects.get(r.id)!;
+    const controlled = l.world.controlsTarget(playerId, t.id);
+    const attrBag = l.snapshot.attrs.get(t.id);
+    const description = attrBag?.get("DESCRIBE")?.value ?? "";
+    // Same visibility authority as the fixture: controller sees all, others
+    // only `visual`; DESCRIBE is the description line, not an attribute row.
+    const attrs: { name: string; value: string }[] = [];
+    if (attrBag) {
+      for (const [name, a] of attrBag) {
+        if (name === "DESCRIBE") continue;
+        if (controlled || a.visual) attrs.push({ name, value: a.value });
+      }
+    }
+    attrs.sort((x, y) => x.name.localeCompare(y.name));
+    const locks: { kind: LockKind; expr: string }[] = [];
+    if (controlled) {
+      const lockBag = l.snapshot.locks.get(t.id);
+      if (lockBag) for (const [kind, expr] of lockBag) locks.push({ kind, expr });
+      locks.sort((x, y) => x.kind.localeCompare(y.kind));
+    }
+    const contents: string[] = [];
+    for (const o of l.snapshot.objects.values()) {
+      if (o.locationId === t.id && o.type !== "exit") contents.push(o.name);
+    }
+    const ownerName = l.snapshot.objects.get(t.ownerId)?.name ?? t.ownerId;
+    return {
+      ok: true, id: t.id, name: t.name, type: t.type, ownerName, description,
+      controlled, attrs, locks, contents: contents.sort(),
+    };
+  }
+
+  async inventory(playerId: string): Promise<InventoryResult> {
+    const l = await this.loadFor(playerId);
+    if (!l) return { things: [] };
+    const things: { id: string; name: string }[] = [];
+    for (const o of l.snapshot.objects.values()) {
+      if (o.locationId === playerId && o.type !== "exit") things.push({ id: o.id, name: o.name });
+    }
+    things.sort((a, b) => a.name.localeCompare(b.name));
+    return { things };
   }
 
   // ---- building (GM-R7) + locks (GM-R8) ---------------------------------

@@ -441,6 +441,54 @@ still not landed**, so real reference coverage cannot be measured and **v1
 cannot claim the STEERCO minimum bar**; #9 is escalated to `needs-human`, and
 the epic close (10) must state this plainly. *(GENMURK-EPIC1-09.)*
 
+### GM-R22 capture landed: real coverage against the player-facing bar
+The canonical capture (genmurk#9) — the reference parser's **140 built-in
+commands** — has been reviewed and dropped in as data (`command-surface.yml`).
+Coverage is now REAL, not provisional. **The bar is the player-facing set**:
+the 53 entries (`tier: player` everyday verbs + `tier: builder` construction/
+operator verbs), 50 traced to a reference command (`reference_tag:
+capture:<handler>`) + 3 GenMURK moderation-model verbs (GM-R16). The remaining
+**90 reference commands are out of the bar** — the wizard/god
+server-and-database administration set (`excluded_admin` 85, e.g. @nuke/
+@shutdown/@dbck), channels (`excluded_channels` 3), economy (`excluded_economy`
+2) — accounted, **not reproduced as in-world verbs** (server control is
+dev-tier ops GM-R19 / the Studio Portal). The runner ASSERTS traced + excluded
+= 140, so the denominator can't be quietly gamed. Round-1 coverage: **32/53
+(60.4%)** — player 18/34, builder 14/19 — up from **12/53 (22.6%)** measured
+with the EPIC1 parser (the lift is mostly the faithful-form reconciliation
+below). **The minimum bar is NOT met**; round-2 gap list ranked in the handoff.
+*(GENMURK-EPIC2-02; harness `app/gm-r22/`.)*
+
+### Command-surface reconciliations: faithful prefixed forms, bare kept convenient
+The capture forced three surface reconciliations, decided and recorded on the
+entries + `/compatibility/`:
+- **`@`-prefix on building/admin verbs** (`@dig`, `@open`, `@lock`, `@destroy`,
+  `@announce`, `@boot`, …): GenMURK **accepts the faithful `@` form** (the
+  parser strips a leading `@` for any verb it implements) **and keeps the bare
+  form as a documented convenience**. An unimplemented prefixed verb (`@nuke`)
+  falls through to `unknown` — an honest gap, never a silent alias.
+- **`+mail`**: the faithful mail form is accepted; bare `mail` kept convenient.
+- **Speech**: the faithful verb is **`pose`** with the single-char tokens `"` →
+  say, `:`/`;` → pose; `emote` is kept as a convenience alias (one speech path).
+  The `;` no-space possessive nuance renders with standard pose spacing — a
+  recorded minor divergence, correct attribution preserved.
+Argument separator: the reference's `=` for building verbs, kept.
+*(GENMURK-EPIC2-02.)*
+
+### Gap fill round 1: the inspection triad + who + pose (budget-free built-ins)
+Round-1 gap fill added the highest-frequency everyday verbs the capture names
+and EPIC1 lacked: **`look <target>` / `examine` / `inventory`** (observing a
+thing and your own carry — read-only over the actor's snapshot; `examine`'s
+attribute/lock visibility reuses the world-API's one `controls`/`canSee`
+authority, so a non-controller sees only the public face), **`who`** (the
+coordinator's connected-session roster, name + room + count), and **`pose`**
+plus the speech tokens. All are **fixed built-ins — budget-free** (the fuel
+meter is only for softcode, GM-R14), wired through **both gateways** (the
+in-memory fixture + Supabase, the read methods mirroring `look()`), and covered
+by stack-free dispatch tests. No new migration or RPC — these are snapshot
+reads and presence, so the sandbox gate and the v1-slice job are untouched.
+*(GENMURK-EPIC2-02.)*
+
 ### The dev-tier ops substrate (GM-R19): the standard contract, carried early
 The dev server answers `GET /healthz` with status + build id — the studio's
 standard health contract (the same shape its hosted apps use) — proven
